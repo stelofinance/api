@@ -5,6 +5,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"gorm.io/gorm/schema"
 )
 
 var Db *gorm.DB
@@ -17,6 +18,9 @@ func ConnectDb() error {
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		SkipDefaultTransaction: true,
+		NamingStrategy: schema.NamingStrategy{
+			SingularTable: true,
+		},
 	})
 	if err != nil {
 		return err
