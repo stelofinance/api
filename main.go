@@ -19,6 +19,11 @@ func main() {
 		log.Fatal("Failed to connect to database")
 	}
 
+	// Run auto migrations
+	if err := database.AutoMigrate(); err != nil {
+		log.Fatal("Failed to run auto migrations\n", err.Error())
+	}
+
 	app := fiber.New()
 
 	app.Get("/", func(c *fiber.Ctx) error {

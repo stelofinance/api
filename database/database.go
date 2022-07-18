@@ -1,6 +1,7 @@
 package database
 
 import (
+	"github.com/stelofinance/api/models"
 	"github.com/stelofinance/api/tools"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -34,4 +35,9 @@ func ConnectDb() error {
 
 	Db = db
 	return nil
+}
+
+func AutoMigrate() error {
+	err := Db.AutoMigrate(&models.User{}, &models.Wallet{})
+	return err
 }
