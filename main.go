@@ -5,6 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/stelofinance/api/database"
+	"github.com/stelofinance/api/routes"
 	"github.com/stelofinance/api/tools"
 )
 
@@ -32,5 +33,9 @@ func main() {
 		})
 	})
 
+	// Setup routes
+	routes.UsersRouter(app.Group("/users"))
+
+	// Run app
 	log.Fatal(app.Listen(":3000"))
 }
