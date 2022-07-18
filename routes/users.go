@@ -18,7 +18,7 @@ func postUser(c *fiber.Ctx) error {
 	// Parse and validate body
 	if c.BodyParser(&body) != nil {
 		return c.Status(400).JSON(fiber.Map{
-			"code": "G0000, first",
+			"code": "G0000",
 		})
 	}
 	if validate.Struct(body) != nil {
