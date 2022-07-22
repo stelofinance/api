@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"time"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
@@ -101,7 +103,8 @@ func postSession(c *fiber.Ctx) error {
 
 	// Create the JWT and set as cookie
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id": user.ID,
+		"id":  user.ID,
+		"exp": time.Now().Add(time.Minute * 30).Unix(),
 	})
 	jwtSecret, err := tools.GetEnvVariable("JWT_SECRET")
 	if err != nil {
@@ -117,21 +120,24 @@ func postSession(c *fiber.Ctx) error {
 	}
 
 	// Set the cookie
-	cookie := new(fiber.Cookie)
-	cookie.Name = "sjwt"
-	cookie.Value = tokenString
-	// If in prod then set cookie Secure flag to 'true'
+	isProdEnv := false
 	prodEnv, err := tools.GetEnvVariable("PRODUCTION_ENV")
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"code": "S0000",
 		})
 	} else if prodEnv == "true" {
-		cookie.Secure = true
+		isProdEnv = true
 	}
-	cookie.HTTPOnly = true
-	cookie.SameSite = "Strict"
-	c.Cookie(cookie)
+	cookie := fiber.Cookie{
+		Name:     "sjwt",
+		Value:    tokenString,
+		Secure:   isProdEnv,
+		HTTPOnly: true,
+		SameSite: "Strict",
+		Expires:  time.Now().Add(time.Minute * 30),
+	}
+	c.Cookie(&cookie)
 
 	return c.Status(201).SendString("Session created")
 }
