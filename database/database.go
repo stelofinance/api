@@ -27,11 +27,9 @@ func ConnectDb() error {
 		return err
 	}
 
-	if isDev, _ := tools.GetEnvVariable("DEV_ENV"); isDev == "true" {
+	if prodEnv, _ := tools.GetEnvVariable("PRODUCTION_ENV"); prodEnv != "true" {
 		db.Logger = logger.Default.LogMode(logger.Info)
 	}
-
-	// TODO: add migrations and models
 
 	Db = db
 	return nil
