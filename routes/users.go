@@ -102,9 +102,12 @@ func postSession(c *fiber.Ctx) error {
 	}
 
 	// Create the JWT and set as cookie
+	// Note: using 'exp' as the field name
+	// makes the jwt module auto check it's
+	// expiration
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id":  user.ID,
-		"exp": time.Now().Add(time.Minute * 30).Unix(),
+		"exp": time.Now().Add(time.Minute * 1).Unix(),
 	})
 	jwtSecret, err := tools.GetEnvVariable("JWT_SECRET")
 	if err != nil {
@@ -140,4 +143,8 @@ func postSession(c *fiber.Ctx) error {
 	c.Cookie(&cookie)
 
 	return c.Status(201).SendString("Session created")
+}
+
+func testCookie(c *fiber.Ctx) error {
+	return c.Status(200).SendString("You're logged in and valid!")
 }
