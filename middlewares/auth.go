@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
@@ -27,8 +28,7 @@ func AuthSession(c *fiber.Ctx) error {
 		return []byte(secret), nil
 	})
 	if !token.Valid {
-		// TODO: Handle this cleaner depending on issue's resolve
-		if err.Error() == "Token is expired" {
+		if errors.Is(err, jwt.ErrTokenExpired) {
 			return c.Status(400).JSON(fiber.Map{
 				"code": "A0002",
 			})
