@@ -107,7 +107,7 @@ func postSession(c *fiber.Ctx) error {
 	// expiration
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id":  user.ID,
-		"exp": time.Now().Add(time.Minute * 1).Unix(),
+		"exp": time.Now().Add(time.Minute * 30).Unix(),
 	})
 	jwtSecret, err := tools.GetEnvVariable("JWT_SECRET")
 	if err != nil {
