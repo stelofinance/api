@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS "user"
+(
+    id BIGSERIAL PRIMARY KEY,
+    username VARCHAR(32) NOT NULL UNIQUE COLLATE "en-US-u-ks-level2",
+    password TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL
+);

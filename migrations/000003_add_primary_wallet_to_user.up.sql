@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN wallet_id BIGINT REFERENCES wallet(id);

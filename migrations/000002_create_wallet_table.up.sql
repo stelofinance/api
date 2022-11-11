@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS wallet
+(
+    id BIGSERIAL PRIMARY KEY,
+    address VARCHAR(32) NOT NULL UNIQUE,
+    user_id BIGINT NOT NULL REFERENCES "user"(id)
+);
