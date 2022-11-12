@@ -64,7 +64,7 @@ func putPassword(c *fiber.Ctx) error {
 	})
 
 	if err != nil {
-		return c.Status(404).SendString(constants.ErrorU003)
+		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
 	return c.Status(200).SendString("Password updated")
