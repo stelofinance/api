@@ -242,7 +242,7 @@ func deleteSessionById(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(500).SendString(constants.ErrorS000)
 	} else if count == 0 {
-		return c.Status(400).SendString(constants.ErrorU004)
+		return c.Status(404).SendString(constants.ErrorU004)
 	}
 
 	if int64(id) == c.Locals("sid").(int64) {
