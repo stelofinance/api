@@ -404,7 +404,7 @@ func deleteUserFromWallet(c *fiber.Ctx) error {
 		UserID: c.Locals("uid").(int64),
 	})
 	if count == 0 {
-		return c.Status(400).SendString(constants.ErrorU002)
+		return c.Status(404).SendString(constants.ErrorU002)
 	}
 
 	// Revoke the user's access to the wallet
