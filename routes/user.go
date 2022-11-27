@@ -108,7 +108,7 @@ func putWallet(c *fiber.Ctx) error {
 	})
 
 	if rows == 0 {
-		return c.Status(404).SendString(constants.ErrorU002)
+		return c.Status(404).SendString(constants.ErrorW000)
 	}
 
 	if err != nil {
@@ -165,7 +165,7 @@ func putActiveWallet(c *fiber.Ctx) error {
 			WalletID: body.WalletID,
 		})
 		if rows == 0 {
-			return c.Status(404).SendString(constants.ErrorU002)
+			return c.Status(404).SendString(constants.ErrorW000)
 		}
 	}
 

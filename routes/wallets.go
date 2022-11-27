@@ -92,7 +92,7 @@ func deleteAssetFromWallet(c *fiber.Ctx) error {
 	})
 
 	if rows == 0 {
-		return c.Status(404).SendString(constants.ErrorW001)
+		return c.Status(404).SendString(constants.ErrorI000)
 	}
 
 	return c.Status(200).SendString("Asset removed from wallet")
