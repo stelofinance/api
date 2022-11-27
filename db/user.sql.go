@@ -11,39 +11,37 @@ import (
 	"time"
 )
 
-const deleteSession = `-- name: DeleteSession :execrows
-DELETE FROM user_session WHERE id = $1
+const getAssignedUsersByWalletId = `-- name: GetAssignedUsersByWalletId :many
+SELECT "user".id, "user".username 
+FROM "user"
+INNER JOIN wallet_user 
+    ON "user".id = wallet_user.user_id 
+        AND wallet_user.wallet_id = $1
 `
 
-func (q *Queries) DeleteSession(ctx context.Context, id int64) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteSession, id)
+type GetAssignedUsersByWalletIdRow struct {
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+}
+
+func (q *Queries) GetAssignedUsersByWalletId(ctx context.Context, walletID int64) ([]GetAssignedUsersByWalletIdRow, error) {
+	rows, err := q.db.Query(ctx, getAssignedUsersByWalletId, walletID)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result.RowsAffected(), nil
-}
-
-const deleteSessionsByUserId = `-- name: DeleteSessionsByUserId :exec
-DELETE FROM user_session WHERE user_id = $1
-`
-
-func (q *Queries) DeleteSessionsByUserId(ctx context.Context, userID int64) error {
-	_, err := q.db.Exec(ctx, deleteSessionsByUserId, userID)
-	return err
-}
-
-const deleteUserSessionByUserIdAndWalletId = `-- name: DeleteUserSessionByUserIdAndWalletId :exec
-DELETE FROM user_session WHERE user_id = $1 AND wallet_id = $2
-`
-
-type DeleteUserSessionByUserIdAndWalletIdParams struct {
-	UserID   int64 `json:"user_id"`
-	WalletID int64 `json:"wallet_id"`
-}
-
-func (q *Queries) DeleteUserSessionByUserIdAndWalletId(ctx context.Context, arg DeleteUserSessionByUserIdAndWalletIdParams) error {
-	_, err := q.db.Exec(ctx, deleteUserSessionByUserIdAndWalletId, arg.UserID, arg.WalletID)
-	return err
+	defer rows.Close()
+	var items []GetAssignedUsersByWalletIdRow
+	for rows.Next() {
+		var i GetAssignedUsersByWalletIdRow
+		if err := rows.Scan(&i.ID, &i.Username); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getUser = `-- name: GetUser :one
@@ -74,35 +72,6 @@ func (q *Queries) GetUserIdByUsername(ctx context.Context, username string) (int
 	return id, err
 }
 
-const getUserSessions = `-- name: GetUserSessions :many
-SELECT id, used_at, user_id, wallet_id FROM user_session WHERE user_id = $1
-`
-
-func (q *Queries) GetUserSessions(ctx context.Context, userID int64) ([]UserSession, error) {
-	rows, err := q.db.Query(ctx, getUserSessions, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []UserSession
-	for rows.Next() {
-		var i UserSession
-		if err := rows.Scan(
-			&i.ID,
-			&i.UsedAt,
-			&i.UserID,
-			&i.WalletID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getWalletByUsername = `-- name: GetWalletByUsername :one
 SELECT wallet_id FROM "user" WHERE username = $1
 `
@@ -131,39 +100,6 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (int64, 
 	return id, err
 }
 
-const insertUserSession = `-- name: InsertUserSession :one
-INSERT INTO user_session (used_at, user_id, wallet_id) VALUES ($1, $2, $3) RETURNING id
-`
-
-type InsertUserSessionParams struct {
-	UsedAt   time.Time `json:"used_at"`
-	UserID   int64     `json:"user_id"`
-	WalletID int64     `json:"wallet_id"`
-}
-
-func (q *Queries) InsertUserSession(ctx context.Context, arg InsertUserSessionParams) (int64, error) {
-	row := q.db.QueryRow(ctx, insertUserSession, arg.UsedAt, arg.UserID, arg.WalletID)
-	var id int64
-	err := row.Scan(&id)
-	return id, err
-}
-
-const insertWallet = `-- name: InsertWallet :one
-INSERT INTO wallet (address, user_id) VALUES ($1, $2) RETURNING id
-`
-
-type InsertWalletParams struct {
-	Address string `json:"address"`
-	UserID  int64  `json:"user_id"`
-}
-
-func (q *Queries) InsertWallet(ctx context.Context, arg InsertWalletParams) (int64, error) {
-	row := q.db.QueryRow(ctx, insertWallet, arg.Address, arg.UserID)
-	var id int64
-	err := row.Scan(&id)
-	return id, err
-}
-
 const updateUserPassword = `-- name: UpdateUserPassword :exec
 UPDATE "user" SET password = $1 WHERE id = $2
 `
@@ -175,37 +111,6 @@ type UpdateUserPasswordParams struct {
 
 func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
 	_, err := q.db.Exec(ctx, updateUserPassword, arg.Password, arg.ID)
-	return err
-}
-
-const updateUserSessionUsedAt = `-- name: UpdateUserSessionUsedAt :execrows
-UPDATE user_session SET used_at = $1 WHERE id = $2
-`
-
-type UpdateUserSessionUsedAtParams struct {
-	UsedAt time.Time `json:"used_at"`
-	ID     int64     `json:"id"`
-}
-
-func (q *Queries) UpdateUserSessionUsedAt(ctx context.Context, arg UpdateUserSessionUsedAtParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateUserSessionUsedAt, arg.UsedAt, arg.ID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const updateUserSessionWallet = `-- name: UpdateUserSessionWallet :exec
-UPDATE user_session SET wallet_id = $1 WHERE id = $2
-`
-
-type UpdateUserSessionWalletParams struct {
-	WalletID int64 `json:"wallet_id"`
-	ID       int64 `json:"id"`
-}
-
-func (q *Queries) UpdateUserSessionWallet(ctx context.Context, arg UpdateUserSessionWalletParams) error {
-	_, err := q.db.Exec(ctx, updateUserSessionWallet, arg.WalletID, arg.ID)
 	return err
 }
 

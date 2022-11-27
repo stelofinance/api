@@ -74,35 +74,6 @@ func (q *Queries) DeleteTransactionsById(ctx context.Context, arg DeleteTransact
 	return result.RowsAffected(), nil
 }
 
-const getTransactionAssetsByTransactionIds = `-- name: GetTransactionAssetsByTransactionIds :many
-SELECT id, transaction_id, asset_id, quantity FROM transaction_asset WHERE transaction_id = ANY($1::BIGINT[])
-`
-
-func (q *Queries) GetTransactionAssetsByTransactionIds(ctx context.Context, dollar_1 []int64) ([]TransactionAsset, error) {
-	rows, err := q.db.Query(ctx, getTransactionAssetsByTransactionIds, dollar_1)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []TransactionAsset
-	for rows.Next() {
-		var i TransactionAsset
-		if err := rows.Scan(
-			&i.ID,
-			&i.TransactionID,
-			&i.AssetID,
-			&i.Quantity,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getTransactions = `-- name: GetTransactions :many
 SELECT id, sending_wallet_id, receiving_wallet_id, created_at, memo FROM transaction 
     WHERE sending_wallet_id = $1 

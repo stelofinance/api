@@ -7,43 +7,7 @@ package db
 
 import (
 	"context"
-	"database/sql"
-	"time"
 )
-
-const addWalletAssetQuantity = `-- name: AddWalletAssetQuantity :execrows
-UPDATE wallet_asset SET quantity = quantity + $1 WHERE wallet_id = $2 AND asset_id = $3
-`
-
-type AddWalletAssetQuantityParams struct {
-	Quantity int64 `json:"quantity"`
-	WalletID int64 `json:"wallet_id"`
-	AssetID  int64 `json:"asset_id"`
-}
-
-func (q *Queries) AddWalletAssetQuantity(ctx context.Context, arg AddWalletAssetQuantityParams) (int64, error) {
-	result, err := q.db.Exec(ctx, addWalletAssetQuantity, arg.Quantity, arg.WalletID, arg.AssetID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const countAssignedWallet = `-- name: CountAssignedWallet :one
-SELECT count(*) FROM wallet_user WHERE user_id = $1 AND wallet_id = $2
-`
-
-type CountAssignedWalletParams struct {
-	UserID   int64 `json:"user_id"`
-	WalletID int64 `json:"wallet_id"`
-}
-
-func (q *Queries) CountAssignedWallet(ctx context.Context, arg CountAssignedWalletParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countAssignedWallet, arg.UserID, arg.WalletID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
 
 const countWalletsByIdAndUserId = `-- name: CountWalletsByIdAndUserId :one
 SELECT count(*) FROM wallet WHERE id = $1 AND user_id = $2
@@ -75,137 +39,6 @@ func (q *Queries) CreateWallet(ctx context.Context, arg CreateWalletParams) erro
 	return err
 }
 
-const createWalletAsset = `-- name: CreateWalletAsset :exec
-INSERT INTO wallet_asset (wallet_id, asset_id, quantity) VALUES ($1, $2, $3)
-`
-
-type CreateWalletAssetParams struct {
-	WalletID int64 `json:"wallet_id"`
-	AssetID  int64 `json:"asset_id"`
-	Quantity int64 `json:"quantity"`
-}
-
-func (q *Queries) CreateWalletAsset(ctx context.Context, arg CreateWalletAssetParams) error {
-	_, err := q.db.Exec(ctx, createWalletAsset, arg.WalletID, arg.AssetID, arg.Quantity)
-	return err
-}
-
-const createWalletSession = `-- name: CreateWalletSession :one
-INSERT INTO wallet_session (wallet_id, name, used_at) VALUES ($1, $2, $3) RETURNING id
-`
-
-type CreateWalletSessionParams struct {
-	WalletID int64          `json:"wallet_id"`
-	Name     sql.NullString `json:"name"`
-	UsedAt   time.Time      `json:"used_at"`
-}
-
-func (q *Queries) CreateWalletSession(ctx context.Context, arg CreateWalletSessionParams) (int64, error) {
-	row := q.db.QueryRow(ctx, createWalletSession, arg.WalletID, arg.Name, arg.UsedAt)
-	var id int64
-	err := row.Scan(&id)
-	return id, err
-}
-
-const createWalletUser = `-- name: CreateWalletUser :exec
-INSERT INTO wallet_user (wallet_id, user_id) VALUES ($1, $2)
-`
-
-type CreateWalletUserParams struct {
-	WalletID int64 `json:"wallet_id"`
-	UserID   int64 `json:"user_id"`
-}
-
-func (q *Queries) CreateWalletUser(ctx context.Context, arg CreateWalletUserParams) error {
-	_, err := q.db.Exec(ctx, createWalletUser, arg.WalletID, arg.UserID)
-	return err
-}
-
-const deleteWalletAsset = `-- name: DeleteWalletAsset :execrows
-DELETE FROM wallet_asset WHERE wallet_id = $1 AND asset_id = $2
-`
-
-type DeleteWalletAssetParams struct {
-	WalletID int64 `json:"wallet_id"`
-	AssetID  int64 `json:"asset_id"`
-}
-
-func (q *Queries) DeleteWalletAsset(ctx context.Context, arg DeleteWalletAssetParams) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteWalletAsset, arg.WalletID, arg.AssetID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const deleteWalletSession = `-- name: DeleteWalletSession :execrows
-DELETE FROM wallet_session WHERE id = $1
-`
-
-func (q *Queries) DeleteWalletSession(ctx context.Context, id int64) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteWalletSession, id)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const deleteWalletSessionsByWalletId = `-- name: DeleteWalletSessionsByWalletId :exec
-DELETE FROM wallet_session WHERE wallet_id = $1
-`
-
-func (q *Queries) DeleteWalletSessionsByWalletId(ctx context.Context, walletID int64) error {
-	_, err := q.db.Exec(ctx, deleteWalletSessionsByWalletId, walletID)
-	return err
-}
-
-const deleteWalletUser = `-- name: DeleteWalletUser :exec
-DELETE FROM wallet_user WHERE wallet_id = $1 AND user_id = $2
-`
-
-type DeleteWalletUserParams struct {
-	WalletID int64 `json:"wallet_id"`
-	UserID   int64 `json:"user_id"`
-}
-
-func (q *Queries) DeleteWalletUser(ctx context.Context, arg DeleteWalletUserParams) error {
-	_, err := q.db.Exec(ctx, deleteWalletUser, arg.WalletID, arg.UserID)
-	return err
-}
-
-const getAssignedUsersByWalletId = `-- name: GetAssignedUsersByWalletId :many
-SELECT "user".id, "user".username 
-FROM "user"
-INNER JOIN wallet_user 
-    ON "user".id = wallet_user.user_id 
-        AND wallet_user.wallet_id = $1
-`
-
-type GetAssignedUsersByWalletIdRow struct {
-	ID       int64  `json:"id"`
-	Username string `json:"username"`
-}
-
-func (q *Queries) GetAssignedUsersByWalletId(ctx context.Context, walletID int64) ([]GetAssignedUsersByWalletIdRow, error) {
-	rows, err := q.db.Query(ctx, getAssignedUsersByWalletId, walletID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetAssignedUsersByWalletIdRow
-	for rows.Next() {
-		var i GetAssignedUsersByWalletIdRow
-		if err := rows.Scan(&i.ID, &i.Username); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getAssignedWalletsByUserId = `-- name: GetAssignedWalletsByUserId :many
 SELECT wallet.id, wallet.address, wallet.user_id 
 FROM wallet 
@@ -234,35 +67,6 @@ func (q *Queries) GetAssignedWalletsByUserId(ctx context.Context, userID int64) 
 	return items, nil
 }
 
-const getWalletAssets = `-- name: GetWalletAssets :many
-SELECT id, wallet_id, asset_id, quantity FROM wallet_asset WHERE wallet_id = $1
-`
-
-func (q *Queries) GetWalletAssets(ctx context.Context, walletID int64) ([]WalletAsset, error) {
-	rows, err := q.db.Query(ctx, getWalletAssets, walletID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []WalletAsset
-	for rows.Next() {
-		var i WalletAsset
-		if err := rows.Scan(
-			&i.ID,
-			&i.WalletID,
-			&i.AssetID,
-			&i.Quantity,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getWalletIdByAddress = `-- name: GetWalletIdByAddress :one
 SELECT id FROM wallet WHERE address = $1
 `
@@ -272,35 +76,6 @@ func (q *Queries) GetWalletIdByAddress(ctx context.Context, address string) (int
 	var id int64
 	err := row.Scan(&id)
 	return id, err
-}
-
-const getWalletSessionsByWalletId = `-- name: GetWalletSessionsByWalletId :many
-SELECT id, wallet_id, name, used_at FROM wallet_session WHERE wallet_id = $1
-`
-
-func (q *Queries) GetWalletSessionsByWalletId(ctx context.Context, walletID int64) ([]WalletSession, error) {
-	rows, err := q.db.Query(ctx, getWalletSessionsByWalletId, walletID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []WalletSession
-	for rows.Next() {
-		var i WalletSession
-		if err := rows.Scan(
-			&i.ID,
-			&i.WalletID,
-			&i.Name,
-			&i.UsedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const getWalletsByUserId = `-- name: GetWalletsByUserId :many
@@ -327,37 +102,18 @@ func (q *Queries) GetWalletsByUserId(ctx context.Context, userID int64) ([]Walle
 	return items, nil
 }
 
-const subtractWalletAssetQuantity = `-- name: SubtractWalletAssetQuantity :execrows
-UPDATE wallet_asset SET quantity = quantity - $1 WHERE wallet_id = $2 AND quantity >= $1 AND asset_id = $3
+const insertWallet = `-- name: InsertWallet :one
+INSERT INTO wallet (address, user_id) VALUES ($1, $2) RETURNING id
 `
 
-type SubtractWalletAssetQuantityParams struct {
-	Quantity int64 `json:"quantity"`
-	WalletID int64 `json:"wallet_id"`
-	AssetID  int64 `json:"asset_id"`
+type InsertWalletParams struct {
+	Address string `json:"address"`
+	UserID  int64  `json:"user_id"`
 }
 
-func (q *Queries) SubtractWalletAssetQuantity(ctx context.Context, arg SubtractWalletAssetQuantityParams) (int64, error) {
-	result, err := q.db.Exec(ctx, subtractWalletAssetQuantity, arg.Quantity, arg.WalletID, arg.AssetID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const updateWalletSessionUsedAt = `-- name: UpdateWalletSessionUsedAt :execrows
-UPDATE wallet_session SET used_at = $1 WHERE id = $2
-`
-
-type UpdateWalletSessionUsedAtParams struct {
-	UsedAt time.Time `json:"used_at"`
-	ID     int64     `json:"id"`
-}
-
-func (q *Queries) UpdateWalletSessionUsedAt(ctx context.Context, arg UpdateWalletSessionUsedAtParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateWalletSessionUsedAt, arg.UsedAt, arg.ID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+func (q *Queries) InsertWallet(ctx context.Context, arg InsertWalletParams) (int64, error) {
+	row := q.db.QueryRow(ctx, insertWallet, arg.Address, arg.UserID)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }
