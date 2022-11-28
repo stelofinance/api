@@ -18,10 +18,11 @@ func UserRouter(app fiber.Router) {
 	app.Put("/password", putPassword)
 	app.Put("/wallet", putWallet)
 	app.Get("/wallets", getWallets)
+	app.Post("/wallets", postWallet)
 	app.Get("/assigned_wallets", getAssignedWallets)
 	app.Put("/session/wallet", putActiveWallet)
 	app.Delete("/session", deleteSession)
-	app.Delete("/session/:sessionid", deleteSessionById)
+	app.Delete("/sessions/:sessionid", deleteSessionById)
 	app.Get("/sessions", getSessions)
 	app.Delete("/sessions", deleteSessions)
 }
@@ -30,11 +31,11 @@ func WalletRouter(app fiber.Router) {
 	app.Get("/assets", auth.New(auth.Wallet), getAssets)
 	app.Post("/transactions", auth.New(auth.Wallet), postTransaction)
 	app.Get("/transactions", auth.New(auth.Wallet), getTransactions)
-	app.Delete("/transaction/:transactionid", auth.New(auth.Wallet), deleteTransaction)
+	app.Delete("/transactions/:transactionid", auth.New(auth.Wallet), deleteTransaction)
 	app.Delete("/transactions", auth.New(auth.Wallet), deleteTransactions)
-	app.Post("/user", auth.New(auth.User), postUserToWallet)
+	app.Post("/users", auth.New(auth.User), postUserToWallet)
 	app.Get("/users", auth.New(auth.User), getAssignedUsers)
-	app.Delete("/user/:userid", auth.New(auth.User), deleteUserFromWallet)
+	app.Delete("/users/:userid", auth.New(auth.User), deleteUserFromWallet)
 	app.Post("/sessions", auth.New(auth.User), postWalletSession)
 	app.Get("/sessions", auth.New(auth.User), getWalletSessions)
 	app.Post("/sessions/token", refreshWalletSession)
@@ -43,7 +44,6 @@ func WalletRouter(app fiber.Router) {
 }
 
 func WalletsRouter(app fiber.Router) {
-	app.Post("/", auth.New(auth.User), postWallet)
 	app.Post("/:walletid/assets", auth.New(auth.Admin), postAssetToWallet)
 	app.Delete("/:walletid/assets/:assetid", auth.New(auth.Admin), deleteAssetFromWallet)
 }
