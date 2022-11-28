@@ -79,16 +79,18 @@ SELECT id, sending_wallet_id, receiving_wallet_id, created_at, memo FROM transac
     WHERE sending_wallet_id = $1 
     OR receiving_wallet_id = $1 
     ORDER BY created_at 
-    DESC LIMIT $2
+    DESC LIMIT $2 
+    OFFSET $3
 `
 
 type GetTransactionsParams struct {
 	SendingWalletID int64 `json:"sending_wallet_id"`
 	Limit           int32 `json:"limit"`
+	Offset          int32 `json:"offset"`
 }
 
 func (q *Queries) GetTransactions(ctx context.Context, arg GetTransactionsParams) ([]Transaction, error) {
-	rows, err := q.db.Query(ctx, getTransactions, arg.SendingWalletID, arg.Limit)
+	rows, err := q.db.Query(ctx, getTransactions, arg.SendingWalletID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

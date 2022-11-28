@@ -193,7 +193,8 @@ func postTransaction(c *fiber.Ctx) error {
 func getTransactions(c *fiber.Ctx) error {
 	// TODO: Add pagination, so an offset is needed
 	query := struct {
-		Limit int32 `query:"limit" validate:"min=0,max=100"`
+		Limit  int32 `query:"limit" validate:"min=0,max=100"`
+		Offset int32 `query:"offset" validate:"min=0,max=1000"`
 	}{}
 	// Parse and validate params
 	if c.QueryParser(&query) != nil {
@@ -211,6 +212,7 @@ func getTransactions(c *fiber.Ctx) error {
 	transactions, err := database.Q.GetTransactions(c.Context(), db.GetTransactionsParams{
 		SendingWalletID: c.Locals("wid").(int64),
 		Limit:           query.Limit,
+		Offset:          query.Offset,
 	})
 	if err != nil {
 		return c.Status(500).SendString(constants.ErrorS000)

@@ -9,7 +9,8 @@ SELECT * FROM transaction
     WHERE sending_wallet_id = $1 
     OR receiving_wallet_id = $1 
     ORDER BY created_at 
-    DESC LIMIT $2;
+    DESC LIMIT $2 
+    OFFSET $3;
 
 -- name: DeleteTransactionById :execrows
 DELETE FROM transaction WHERE (sending_wallet_id = $1 OR receiving_wallet_id = $2) AND id = $3;
