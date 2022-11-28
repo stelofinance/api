@@ -27,7 +27,7 @@ func main() {
 	routes.UsersRouter(app.Group("/users"))
 	routes.UserRouter(app.Group("/user", auth.New(auth.User)))
 	routes.WalletRouter(app.Group("/wallet"))
-	routes.WalletsRouter(app.Group("/wallets"))
+	routes.WalletsRouter(app.Group("/wallets", auth.New(auth.Admin)))
 	routes.AssetsRouter(app.Group("/assets", auth.New(auth.Admin)))
 
 	// Run app

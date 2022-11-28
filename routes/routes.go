@@ -44,8 +44,8 @@ func WalletRouter(app fiber.Router) {
 }
 
 func WalletsRouter(app fiber.Router) {
-	app.Post("/:walletid/assets", auth.New(auth.Admin), postAssetToWallet)
-	app.Delete("/:walletid/assets/:assetid", auth.New(auth.Admin), deleteAssetFromWallet)
+	app.Post("/:walletid/assets", postAssetToWallet)
+	app.Delete("/:walletid/assets/:assetid", deleteAssetFromWallet)
 }
 
 func AssetsRouter(app fiber.Router) {
