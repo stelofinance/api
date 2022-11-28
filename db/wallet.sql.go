@@ -117,3 +117,18 @@ func (q *Queries) InsertWallet(ctx context.Context, arg InsertWalletParams) (int
 	err := row.Scan(&id)
 	return id, err
 }
+
+const updateWalletUserID = `-- name: UpdateWalletUserID :exec
+UPDATE wallet SET user_id = $1 WHERE id = $2 AND user_id = $3
+`
+
+type UpdateWalletUserIDParams struct {
+	UserID   int64 `json:"user_id"`
+	ID       int64 `json:"id"`
+	UserID_2 int64 `json:"user_id_2"`
+}
+
+func (q *Queries) UpdateWalletUserID(ctx context.Context, arg UpdateWalletUserIDParams) error {
+	_, err := q.db.Exec(ctx, updateWalletUserID, arg.UserID, arg.ID, arg.UserID_2)
+	return err
+}

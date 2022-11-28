@@ -443,6 +443,53 @@ func getAssignedUsers(c *fiber.Ctx) error {
 	return c.Status(200).JSON(assignedUsers)
 }
 
+func putWalletOwner(c *fiber.Ctx) error {
+	body := struct {
+		UserID int64 `json:"user_id" validate:"required"`
+	}{}
+	if c.BodyParser(&body) != nil {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+	if validate.Struct(body) != nil {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+
+	// Switch their user_wallet entry for requesters
+	// user_id, then change the wallet's user_id to new owner
+	tx, err := database.DB.Begin(c.Context())
+	defer tx.Rollback(c.Context())
+	if err != nil {
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	qtx := database.Q.WithTx(tx)
+
+	rows, err := qtx.UpdateWalletUserUserID(c.Context(), db.UpdateWalletUserUserIDParams{
+		UserID:   c.Locals("uid").(int64),
+		WalletID: c.Locals("wid").(int64),
+		UserID_2: body.UserID,
+	})
+
+	if rows == 0 {
+		return c.Status(400).SendString(constants.ErrorW007)
+	}
+	if err != nil {
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	err = qtx.UpdateWalletUserID(c.Context(), db.UpdateWalletUserIDParams{
+		UserID:   body.UserID,
+		ID:       c.Locals("wid").(int64),
+		UserID_2: c.Locals("uid").(int64),
+	})
+	if err != nil {
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	tx.Commit(c.Context())
+
+	return c.Status(200).SendString("New owner assigned")
+}
+
 func postWalletSession(c *fiber.Ctx) error {
 	body := struct {
 		Name string `json:"name"`
