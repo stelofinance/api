@@ -655,7 +655,7 @@ func deleteWallet(c *fiber.Ctx) error {
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	if user.WalletID.Int64 == c.Locals("wid").(int64) {
-		return c.Status(500).SendString(constants.ErrorW008)
+		return c.Status(400).SendString(constants.ErrorW008)
 	}
 
 	// Get all the assets currently in the wallet
