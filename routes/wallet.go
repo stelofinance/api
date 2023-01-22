@@ -3,7 +3,6 @@ package routes
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -668,7 +667,6 @@ func deleteWallet(c *fiber.Ctx) error {
 	// Delete all the assets in the wallet
 	_, err = qtx.DeleteWalletAssets(c.Context(), c.Locals("wid").(int64))
 	if err != nil {
-		fmt.Println(err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -720,7 +718,6 @@ func deleteWallet(c *fiber.Ctx) error {
 	var insertErrorOccured bool
 	txAssetsResult.Exec(func(i int, err error) {
 		if err != nil {
-			fmt.Println(err.Error())
 			insertErrorOccured = true
 		}
 	})
@@ -738,14 +735,12 @@ func deleteWallet(c *fiber.Ctx) error {
 		WalletID: user.WalletID.Int64,
 	})
 	if err != nil {
-		fmt.Println(err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
 	// Delete the wallet
 	_, err = qtx.DeleteWallet(c.Context(), c.Locals("wid").(int64))
 	if err != nil {
-		fmt.Println(err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
