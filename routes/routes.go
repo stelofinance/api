@@ -42,6 +42,7 @@ func WalletRouter(app fiber.Router) {
 	app.Delete("/sessions/:sessionid", auth.New(auth.User), deleteWalletSession)
 	app.Delete("/sessions", auth.New(auth.User), deleteWalletSessions)
 	app.Put("/owner", auth.New(auth.User), putWalletOwner)
+	app.Delete("/", auth.New(auth.User), deleteWallet)
 }
 
 func WalletsRouter(app fiber.Router) {

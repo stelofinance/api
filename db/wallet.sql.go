@@ -39,6 +39,18 @@ func (q *Queries) CreateWallet(ctx context.Context, arg CreateWalletParams) erro
 	return err
 }
 
+const deleteWallet = `-- name: DeleteWallet :execrows
+DELETE FROM wallet WHERE id = $1
+`
+
+func (q *Queries) DeleteWallet(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteWallet, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getAssignedWalletsByUserId = `-- name: GetAssignedWalletsByUserId :many
 SELECT wallet.id, wallet.address, wallet.user_id 
 FROM wallet 

@@ -22,3 +22,6 @@ SELECT id FROM wallet WHERE address = $1;
 
 -- name: UpdateWalletUserID :exec
 UPDATE wallet SET user_id = $1 WHERE id = $2 AND user_id = $3;
+
+-- name: DeleteWallet :execrows
+DELETE FROM wallet WHERE id = $1;

@@ -59,6 +59,18 @@ func (q *Queries) DeleteWalletAsset(ctx context.Context, arg DeleteWalletAssetPa
 	return result.RowsAffected(), nil
 }
 
+const deleteWalletAssets = `-- name: DeleteWalletAssets :execrows
+DELETE FROM wallet_asset WHERE wallet_id = $1
+`
+
+func (q *Queries) DeleteWalletAssets(ctx context.Context, walletID int64) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteWalletAssets, walletID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getWalletAssets = `-- name: GetWalletAssets :many
 SELECT id, wallet_id, asset_id, quantity FROM wallet_asset WHERE wallet_id = $1
 `

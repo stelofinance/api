@@ -3,6 +3,7 @@ package routes
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -624,4 +625,155 @@ func deleteWalletSessions(c *fiber.Ctx) error {
 	}
 
 	return c.Status(200).SendString("All sessions deleted")
+}
+
+func deleteWallet(c *fiber.Ctx) error {
+	tx, err := database.DB.Begin(c.Context())
+	defer tx.Rollback(c.Context())
+	if err != nil {
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	qtx := database.Q.WithTx(tx)
+
+	// Check if requester owns the wallet
+	count, err := database.Q.CountWalletsByIdAndUserId(c.Context(), db.CountWalletsByIdAndUserIdParams{
+		ID:     c.Locals("wid").(int64),
+		UserID: c.Locals("uid").(int64),
+	})
+	if err != nil {
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	if count == 0 {
+		return c.Status(400).SendString(constants.ErrorW006)
+	}
+
+	// Check if wallet is primary
+	user, err := qtx.GetUserById(c.Context(), c.Locals("uid").(int64))
+	if err != nil {
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	if !user.WalletID.Valid {
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	if user.WalletID.Int64 == c.Locals("wid").(int64) {
+		return c.Status(500).SendString(constants.ErrorW008)
+	}
+
+	// Get all the assets currently in the wallet
+	assets, err := qtx.GetWalletAssets(c.Context(), c.Locals("wid").(int64))
+	if err != nil {
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	// Delete all the assets in the wallet
+	_, err = qtx.DeleteWalletAssets(c.Context(), c.Locals("wid").(int64))
+	if err != nil {
+		fmt.Println(err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	// Add/create all the assets in the primary wallet
+	for _, asset := range assets {
+		rows, err := qtx.AddWalletAssetQuantity(c.Context(), db.AddWalletAssetQuantityParams{
+			Quantity: asset.Quantity,
+			WalletID: user.WalletID.Int64,
+			AssetID:  asset.AssetID,
+		})
+
+		if err != nil {
+			return c.Status(500).SendString(constants.ErrorS000)
+		} else if rows == 0 {
+			err := qtx.CreateWalletAsset(c.Context(), db.CreateWalletAssetParams{
+				Quantity: asset.Quantity,
+				WalletID: user.WalletID.Int64,
+				AssetID:  asset.AssetID,
+			})
+
+			if err != nil {
+				return c.Status(500).SendString(constants.ErrorS000)
+			}
+		}
+	}
+
+	// Create transaction record
+	transactionID, err := qtx.CreateTransaction(c.Context(), db.CreateTransactionParams{
+		SendingWalletID:   user.WalletID.Int64,
+		ReceivingWalletID: user.WalletID.Int64,
+		CreatedAt:         time.Now(),
+		Memo: sql.NullString{
+			String: "funds from deleted wallet",
+			Valid:  true,
+		},
+	})
+
+	var transactionAssets []db.CreateTransactionAssetsParams
+	for _, asset := range assets {
+		transactionAssets = append(transactionAssets, db.CreateTransactionAssetsParams{
+			TransactionID: transactionID,
+			AssetID:       asset.AssetID,
+			Quantity:      asset.Quantity,
+		})
+	}
+
+	txAssetsResult := qtx.CreateTransactionAssets(c.Context(), transactionAssets)
+
+	var insertErrorOccured bool
+	txAssetsResult.Exec(func(i int, err error) {
+		if err != nil {
+			fmt.Println(err.Error())
+			insertErrorOccured = true
+		}
+	})
+
+	if insertErrorOccured {
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	// TODO: Add in websocket support
+
+	// Update their session
+	// UNSAFE: Type assertion could panic
+	err = qtx.UpdateUserSessionWallet(c.Context(), db.UpdateUserSessionWalletParams{
+		ID:       c.Locals("sid").(int64),
+		WalletID: user.WalletID.Int64,
+	})
+	if err != nil {
+		fmt.Println(err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	// Delete the wallet
+	_, err = qtx.DeleteWallet(c.Context(), c.Locals("wid").(int64))
+	if err != nil {
+		fmt.Println(err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	// Create new JWT for their cookie
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &auth.UserJWT{
+		UserID:    c.Locals("uid").(int64), // UNSAFE: Type assertion could panic
+		SessionID: c.Locals("sid").(int64), // UNSAFE: Type assertion could panic
+		WalletID:  user.WalletID.Int64,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: time.Now().Add(time.Minute * 30).Unix(),
+		},
+	})
+	jwtString, err := token.SignedString(tools.EnvVars.JwtSecret)
+	if err != nil {
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	// Set the cookie
+	cookie := fiber.Cookie{
+		Name:     "ujwt",
+		Value:    jwtString,
+		Secure:   tools.EnvVars.ProductionEnv,
+		HTTPOnly: true,
+		SameSite: "Strict",
+	}
+	c.Cookie(&cookie)
+
+	tx.Commit(c.Context())
+
+	return c.Status(200).SendString("Wallet deleted")
 }

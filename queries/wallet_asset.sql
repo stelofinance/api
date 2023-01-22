@@ -13,3 +13,5 @@ UPDATE wallet_asset SET quantity = quantity - $1 WHERE wallet_id = $2 AND quanti
 -- name: AddWalletAssetQuantity :execrows
 UPDATE wallet_asset SET quantity = quantity + $1 WHERE wallet_id = $2 AND asset_id = $3;
 
+-- name: DeleteWalletAssets :execrows
+DELETE FROM wallet_asset WHERE wallet_id = $1;

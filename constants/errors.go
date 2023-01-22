@@ -21,6 +21,7 @@ const (
 	ErrorW005 = "W005: Session Not Found"
 	ErrorW006 = "W006: Wallet Not Owned"
 	ErrorW007 = "W007: User Not Assigned"
+	ErrorW008 = "W008: Can't Delete Primary Wallet"
 
 	ErrorA000 = "A000: Session Required"
 	ErrorA001 = "A001: Invalid Session"

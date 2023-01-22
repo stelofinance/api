@@ -7,6 +7,9 @@ UPDATE "user" SET wallet_id = $1 WHERE id = $2;
 -- name: GetUser :one
 SELECT * FROM "user" WHERE username = $1;
 
+-- name: GetUserById :one
+SELECT * FROM "user" WHERE id = $1;
+
 -- name: UpdateUserUsername :exec
 UPDATE "user" SET username = $1 WHERE id = $2;
 
