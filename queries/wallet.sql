@@ -25,3 +25,9 @@ UPDATE wallet SET user_id = $1 WHERE id = $2 AND user_id = $3;
 
 -- name: DeleteWallet :execrows
 DELETE FROM wallet WHERE id = $1;
+
+-- name: UpdateWalletWebhook :exec
+UPDATE wallet SET webhook = $1 WHERE id = $2;
+
+-- name: DeleteWalletWebhook :exec
+UPDATE wallet set webhook = NULL WHERE id = $1;

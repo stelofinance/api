@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
 const countWalletsByIdAndUserId = `-- name: CountWalletsByIdAndUserId :one
@@ -51,6 +52,15 @@ func (q *Queries) DeleteWallet(ctx context.Context, id int64) (int64, error) {
 	return result.RowsAffected(), nil
 }
 
+const deleteWalletWebhook = `-- name: DeleteWalletWebhook :exec
+UPDATE wallet set webhook = NULL WHERE id = $1
+`
+
+func (q *Queries) DeleteWalletWebhook(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, deleteWalletWebhook, id)
+	return err
+}
+
 const getAssignedWalletsByUserId = `-- name: GetAssignedWalletsByUserId :many
 SELECT wallet.id, wallet.address, wallet.user_id 
 FROM wallet 
@@ -59,15 +69,21 @@ INNER JOIN wallet_user
         AND wallet_user.user_id = $1
 `
 
-func (q *Queries) GetAssignedWalletsByUserId(ctx context.Context, userID int64) ([]Wallet, error) {
+type GetAssignedWalletsByUserIdRow struct {
+	ID      int64  `json:"id"`
+	Address string `json:"address"`
+	UserID  int64  `json:"user_id"`
+}
+
+func (q *Queries) GetAssignedWalletsByUserId(ctx context.Context, userID int64) ([]GetAssignedWalletsByUserIdRow, error) {
 	rows, err := q.db.Query(ctx, getAssignedWalletsByUserId, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Wallet
+	var items []GetAssignedWalletsByUserIdRow
 	for rows.Next() {
-		var i Wallet
+		var i GetAssignedWalletsByUserIdRow
 		if err := rows.Scan(&i.ID, &i.Address, &i.UserID); err != nil {
 			return nil, err
 		}
@@ -91,7 +107,7 @@ func (q *Queries) GetWalletIdByAddress(ctx context.Context, address string) (int
 }
 
 const getWalletsByUserId = `-- name: GetWalletsByUserId :many
-SELECT id, address, user_id FROM wallet WHERE user_id = $1
+SELECT id, address, user_id, webhook FROM wallet WHERE user_id = $1
 `
 
 func (q *Queries) GetWalletsByUserId(ctx context.Context, userID int64) ([]Wallet, error) {
@@ -103,7 +119,12 @@ func (q *Queries) GetWalletsByUserId(ctx context.Context, userID int64) ([]Walle
 	var items []Wallet
 	for rows.Next() {
 		var i Wallet
-		if err := rows.Scan(&i.ID, &i.Address, &i.UserID); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Address,
+			&i.UserID,
+			&i.Webhook,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -142,5 +163,19 @@ type UpdateWalletUserIDParams struct {
 
 func (q *Queries) UpdateWalletUserID(ctx context.Context, arg UpdateWalletUserIDParams) error {
 	_, err := q.db.Exec(ctx, updateWalletUserID, arg.UserID, arg.ID, arg.UserID_2)
+	return err
+}
+
+const updateWalletWebhook = `-- name: UpdateWalletWebhook :exec
+UPDATE wallet SET webhook = $1 WHERE id = $2
+`
+
+type UpdateWalletWebhookParams struct {
+	Webhook sql.NullString `json:"webhook"`
+	ID      int64          `json:"id"`
+}
+
+func (q *Queries) UpdateWalletWebhook(ctx context.Context, arg UpdateWalletWebhookParams) error {
+	_, err := q.db.Exec(ctx, updateWalletWebhook, arg.Webhook, arg.ID)
 	return err
 }

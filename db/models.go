@@ -46,9 +46,10 @@ type UserSession struct {
 }
 
 type Wallet struct {
-	ID      int64  `json:"id"`
-	Address string `json:"address"`
-	UserID  int64  `json:"user_id"`
+	ID      int64          `json:"id"`
+	Address string         `json:"address"`
+	UserID  int64          `json:"user_id"`
+	Webhook sql.NullString `json:"webhook"`
 }
 
 type WalletAsset struct {

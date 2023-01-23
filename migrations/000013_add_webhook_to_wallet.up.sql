@@ -1,0 +1,1 @@
+ALTER TABLE wallet ADD COLUMN webhook VARCHAR(128);
