@@ -169,7 +169,7 @@ func getAssignedWallets(c *fiber.Ctx) error {
 	}
 
 	if wallets == nil {
-		wallets = []db.Wallet{}
+		wallets = []db.GetAssignedWalletsByUserIdRow{}
 	}
 
 	return c.Status(200).JSON(wallets)

@@ -772,3 +772,50 @@ func deleteWallet(c *fiber.Ctx) error {
 
 	return c.Status(200).SendString("Wallet deleted")
 }
+
+func putWalletWebhook(c *fiber.Ctx) error {
+	body := struct {
+		Webhook string `json:"webhook" validate:"required,max=128,url"`
+	}{}
+	if c.BodyParser(&body) != nil {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+	if validate.Struct(body) != nil {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+
+	// Check if wallet is primary
+	user, err := database.Q.GetUserById(c.Context(), c.Locals("uid").(int64))
+	if err != nil {
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	if !user.WalletID.Valid {
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	if user.WalletID.Int64 == c.Locals("wid").(int64) {
+		return c.Status(400).SendString(constants.ErrorW009)
+	}
+
+	// Update webhook
+	err = database.Q.UpdateWalletWebhook(c.Context(), db.UpdateWalletWebhookParams{
+		ID: c.Locals("wid").(int64),
+		Webhook: sql.NullString{
+			String: body.Webhook,
+			Valid:  true,
+		},
+	})
+	if err != nil {
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	return c.Status(200).SendString("Wallet webhook updated")
+}
+
+func deleteWalletWebhook(c *fiber.Ctx) error {
+	err := database.Q.DeleteWalletWebhook(c.Context(), c.Locals("wid").(int64))
+	if err != nil {
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	return c.Status(200).SendString("Webhook removed from wallet")
+}
