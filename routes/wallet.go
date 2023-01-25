@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -57,10 +58,10 @@ func getAssets(c *fiber.Ctx) error {
 
 func postTransaction(c *fiber.Ctx) error {
 	type requestBody struct {
-		Recipient  string           `json:"recipient" validate:"required"`
-		IsUsername bool             `json:"is_username"`
-		Memo       string           `json:"memo" validate:"max=64"`
-		Assets     map[string]int64 `json:"assets" validate:"gt=0,dive,gt=0"`
+		Recipient string           `json:"recipient" validate:"required"`
+		Type      uint8            `json:"type" validate:"lte=2"`
+		Memo      string           `json:"memo" validate:"max=64"`
+		Assets    map[string]int64 `json:"assets" validate:"gt=0,dive,gt=0"`
 	}
 	var body requestBody
 
@@ -69,6 +70,9 @@ func postTransaction(c *fiber.Ctx) error {
 		return c.Status(400).SendString(constants.ErrorG000)
 	}
 	if validate.Struct(body) != nil {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+	if body.Type >= 3 {
 		return c.Status(400).SendString(constants.ErrorG000)
 	}
 
@@ -121,19 +125,30 @@ func postTransaction(c *fiber.Ctx) error {
 		String: "",
 		Valid:  false,
 	}
-	if body.IsUsername {
+	// Username type
+	if body.Type == 0 {
 		walletID, err := qtx.GetWalletByUsername(c.Context(), body.Recipient)
 		if err != nil || !walletID.Valid {
 			return c.Status(500).SendString(constants.ErrorU003)
 		}
 		recipientWalletID = walletID.Int64
-	} else {
+		// Address type
+	} else if body.Type == 1 {
 		wallet, err := qtx.GetWalletIdAndWebhookByAddress(c.Context(), body.Recipient)
 		if err != nil {
 			return c.Status(500).SendString(constants.ErrorW000)
 		}
 		recipientWalletID = wallet.ID
 		webhook = wallet.Webhook
+		// Wallet Id type
+	} else {
+		wallet_id, err := strconv.ParseInt(body.Recipient, 10, 0)
+		if err != nil {
+			return c.Status(400).SendString(constants.ErrorG000)
+		}
+		wallet_webhook, err := qtx.GetWalletWebhook(c.Context(), wallet_id)
+		recipientWalletID = wallet_id
+		webhook = wallet_webhook
 	}
 
 	// If there is a webhook hit it first

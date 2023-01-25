@@ -111,6 +111,17 @@ func (q *Queries) GetWalletIdAndWebhookByAddress(ctx context.Context, address st
 	return i, err
 }
 
+const getWalletWebhook = `-- name: GetWalletWebhook :one
+SELECT webhook FROM wallet WHERE id = $1
+`
+
+func (q *Queries) GetWalletWebhook(ctx context.Context, id int64) (sql.NullString, error) {
+	row := q.db.QueryRow(ctx, getWalletWebhook, id)
+	var webhook sql.NullString
+	err := row.Scan(&webhook)
+	return webhook, err
+}
+
 const getWalletsByUserId = `-- name: GetWalletsByUserId :many
 SELECT id, address, user_id, webhook FROM wallet WHERE user_id = $1
 `
