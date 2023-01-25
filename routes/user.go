@@ -126,7 +126,24 @@ func getWallets(c *fiber.Ctx) error {
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
-	return c.Status(200).JSON(wallets)
+	// Create the response object
+	type walletsAPI struct {
+		ID      int64  `json:"id"`
+		Address string `json:"address"`
+		UserID  int64  `json:"user_id"`
+		Webhook string `json:"webhook"`
+	}
+	walletsResponse := []walletsAPI{}
+	for _, wallet := range wallets {
+		walletsResponse = append(walletsResponse, walletsAPI{
+			ID:      wallet.ID,
+			Address: wallet.Address,
+			UserID:  wallet.UserID,
+			Webhook: wallet.Webhook.String,
+		})
+	}
+
+	return c.Status(200).JSON(walletsResponse)
 }
 
 func postWallet(c *fiber.Ctx) error {
