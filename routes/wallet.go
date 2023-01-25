@@ -1,8 +1,11 @@
 package routes
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"net/http"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -114,6 +117,10 @@ func postTransaction(c *fiber.Ctx) error {
 	// Now put assets in other wallet, first get their wallet ID though
 	// Create the wallet asset record if not already
 	var recipientWalletID int64
+	webhook := sql.NullString{
+		String: "",
+		Valid:  false,
+	}
 	if body.IsUsername {
 		walletID, err := qtx.GetWalletByUsername(c.Context(), body.Recipient)
 		if err != nil || !walletID.Valid {
@@ -121,11 +128,36 @@ func postTransaction(c *fiber.Ctx) error {
 		}
 		recipientWalletID = walletID.Int64
 	} else {
-		walletID, err := qtx.GetWalletIdByAddress(c.Context(), body.Recipient)
+		wallet, err := qtx.GetWalletIdAndWebhookByAddress(c.Context(), body.Recipient)
 		if err != nil {
 			return c.Status(500).SendString(constants.ErrorW000)
 		}
-		recipientWalletID = walletID
+		recipientWalletID = wallet.ID
+		webhook = wallet.Webhook
+	}
+
+	// If there is a webhook hit it first
+	if webhook.Valid {
+		// Create the body
+		postBody, err := json.Marshal(fiber.Map{
+			"wallet_id": c.Locals("wid").(int64),
+			"memo":      body.Memo,
+			"assets":    body.Assets,
+		})
+		if err != nil {
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+		responseBody := bytes.NewBuffer(postBody)
+
+		// Hit the webhook
+		resp, err := http.Post(webhook.String, "application/json", responseBody)
+		if err != nil {
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+		if resp.StatusCode != 200 {
+			return c.Status(400).SendString(constants.ErrorW010)
+		}
+		resp.Body.Close()
 	}
 
 	for asset, quantity := range body.Assets {

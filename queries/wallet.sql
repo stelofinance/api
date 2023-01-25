@@ -17,8 +17,8 @@ INNER JOIN wallet_user
     ON wallet.id = wallet_user.wallet_id 
         AND wallet_user.user_id = $1;
 
--- name: GetWalletIdByAddress :one
-SELECT id FROM wallet WHERE address = $1;
+-- name: GetWalletIdAndWebhookByAddress :one
+SELECT id, webhook FROM wallet WHERE address = $1;
 
 -- name: UpdateWalletUserID :exec
 UPDATE wallet SET user_id = $1 WHERE id = $2 AND user_id = $3;

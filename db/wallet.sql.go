@@ -95,15 +95,20 @@ func (q *Queries) GetAssignedWalletsByUserId(ctx context.Context, userID int64) 
 	return items, nil
 }
 
-const getWalletIdByAddress = `-- name: GetWalletIdByAddress :one
-SELECT id FROM wallet WHERE address = $1
+const getWalletIdAndWebhookByAddress = `-- name: GetWalletIdAndWebhookByAddress :one
+SELECT id, webhook FROM wallet WHERE address = $1
 `
 
-func (q *Queries) GetWalletIdByAddress(ctx context.Context, address string) (int64, error) {
-	row := q.db.QueryRow(ctx, getWalletIdByAddress, address)
-	var id int64
-	err := row.Scan(&id)
-	return id, err
+type GetWalletIdAndWebhookByAddressRow struct {
+	ID      int64          `json:"id"`
+	Webhook sql.NullString `json:"webhook"`
+}
+
+func (q *Queries) GetWalletIdAndWebhookByAddress(ctx context.Context, address string) (GetWalletIdAndWebhookByAddressRow, error) {
+	row := q.db.QueryRow(ctx, getWalletIdAndWebhookByAddress, address)
+	var i GetWalletIdAndWebhookByAddressRow
+	err := row.Scan(&i.ID, &i.Webhook)
+	return i, err
 }
 
 const getWalletsByUserId = `-- name: GetWalletsByUserId :many
