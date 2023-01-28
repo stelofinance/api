@@ -2,6 +2,7 @@ package routes
 
 import (
 	"database/sql"
+	"log"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -33,6 +34,7 @@ func postUser(c *fiber.Ctx) error {
 	// Hash the password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
 	if err != nil {
+		log.Printf("Error hasing password: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -40,6 +42,7 @@ func postUser(c *fiber.Ctx) error {
 	tx, err := database.DB.Begin(c.Context())
 	defer tx.Rollback(c.Context())
 	if err != nil {
+		log.Printf("Error creating transaction: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	qtx := database.Q.WithTx(tx)
@@ -60,6 +63,7 @@ func postUser(c *fiber.Ctx) error {
 	})
 	// TODO: Handle this cleaner, the address may have been taken
 	if err != nil {
+		log.Printf("Error inserting wallet to db (addr taken?): {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -68,6 +72,7 @@ func postUser(c *fiber.Ctx) error {
 		ID:       userID,
 	})
 	if err != nil {
+		log.Printf("Error updating user wallet: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -112,6 +117,7 @@ func postSession(c *fiber.Ctx) error {
 		WalletID: user.WalletID.Int64,
 	})
 	if err != nil {
+		log.Printf("Error inserting session: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -128,6 +134,7 @@ func postSession(c *fiber.Ctx) error {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	jwtString, err := token.SignedString(tools.EnvVars.JwtSecret)
 	if err != nil {
+		log.Printf("Error creating JWT: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 

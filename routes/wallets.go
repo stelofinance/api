@@ -8,6 +8,7 @@ import (
 )
 
 func postAssetToWallet(c *fiber.Ctx) error {
+	// TODO: Fix this allowing multiple rows of the same asset
 	// Get walletid param
 	params := struct {
 		WalletID int64 `params:"walletid"`

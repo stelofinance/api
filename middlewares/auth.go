@@ -170,6 +170,7 @@ func AuthUser(c *fiber.Ctx) error {
 			})
 			jwtString, err := token.SignedString(tools.EnvVars.JwtSecret)
 			if err != nil {
+				log.Printf("Error creating JWT: {%v}", err.Error())
 				return c.Status(500).SendString(constants.ErrorS000)
 			}
 

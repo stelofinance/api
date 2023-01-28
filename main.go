@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/stelofinance/api/database"
 	"github.com/stelofinance/api/middlewares"
 	"github.com/stelofinance/api/routes"
@@ -23,7 +24,13 @@ func main() {
 
 	app := fiber.New()
 
+	// Log request
+	app.Use(logger.New(logger.Config{
+		Format: "[${ip}] ${status} - ${method} ${path}\n",
+	}))
+
 	// Setup routes
+	routes.CentrifugoRouter(app.Group("/centrifugo"))
 	routes.UsersRouter(app.Group("/users"))
 	routes.UserRouter(app.Group("/user", auth.New(auth.User)))
 	routes.WalletRouter(app.Group("/wallet"))
@@ -31,5 +38,5 @@ func main() {
 	routes.AssetsRouter(app.Group("/assets", auth.New(auth.Admin)))
 
 	// Run app
-	log.Fatal(app.Listen(":3000"))
+	log.Fatal(app.Listen(":8080"))
 }

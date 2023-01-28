@@ -8,6 +8,10 @@ import (
 
 var validate = validator.New()
 
+func CentrifugoRouter(app fiber.Router) {
+	app.Post("/connect", auth.New(auth.Wallet), postConnection)
+}
+
 func UsersRouter(app fiber.Router) {
 	app.Post("/", auth.New(auth.Guest), postUser)
 	app.Post("/:username/sessions", auth.New(auth.Guest), postSession)

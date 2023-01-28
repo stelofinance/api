@@ -2,6 +2,7 @@ package routes
 
 import (
 	"database/sql"
+	"log"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -54,6 +55,7 @@ func putPassword(c *fiber.Ctx) error {
 	// Hash the password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
 	if err != nil {
+		log.Printf("Error hasing password: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -64,6 +66,7 @@ func putPassword(c *fiber.Ctx) error {
 	})
 
 	if err != nil {
+		log.Printf("Error updating password: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -85,6 +88,7 @@ func putWallet(c *fiber.Ctx) error {
 	tx, err := database.DB.Begin(c.Context())
 	defer tx.Rollback(c.Context())
 	if err != nil {
+		log.Printf("Error creating db transaction: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	qtx := database.Q.WithTx(tx)
@@ -99,6 +103,7 @@ func putWallet(c *fiber.Ctx) error {
 	}
 
 	if err != nil {
+		log.Printf("Error updating user wallet: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -112,6 +117,7 @@ func putWallet(c *fiber.Ctx) error {
 	}
 
 	if err != nil {
+		log.Printf("Error counting wallets: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -123,6 +129,7 @@ func putWallet(c *fiber.Ctx) error {
 func getWallets(c *fiber.Ctx) error {
 	wallets, err := database.Q.GetWalletsByUserId(c.Context(), c.Locals("uid").(int64))
 	if err != nil {
+		log.Printf("Error retrieving wallets: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -170,6 +177,7 @@ func postWallet(c *fiber.Ctx) error {
 		Address: body.Address,
 	})
 	if err != nil {
+		log.Printf("Error creating wallet: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -182,6 +190,7 @@ func postWallet(c *fiber.Ctx) error {
 func getAssignedWallets(c *fiber.Ctx) error {
 	wallets, err := database.Q.GetAssignedWalletsByUserId(c.Context(), c.Locals("uid").(int64))
 	if err != nil {
+		log.Printf("Error getting assigned wallets: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -230,6 +239,7 @@ func putActiveWallet(c *fiber.Ctx) error {
 	})
 	jwtString, err := token.SignedString(tools.EnvVars.JwtSecret)
 	if err != nil {
+		log.Printf("Error creating JWT: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -240,6 +250,7 @@ func putActiveWallet(c *fiber.Ctx) error {
 		WalletID: body.WalletID,
 	})
 	if err != nil {
+		log.Printf("Error updating session: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -259,6 +270,7 @@ func putActiveWallet(c *fiber.Ctx) error {
 func getSessions(c *fiber.Ctx) error {
 	userSessions, err := database.Q.GetUserSessions(c.Context(), c.Locals("uid").(int64))
 	if err != nil {
+		log.Printf("Error getting sessions: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -290,6 +302,7 @@ func deleteSessionById(c *fiber.Ctx) error {
 
 	count, err := database.Q.DeleteSession(c.Context(), int64(id))
 	if err != nil {
+		log.Printf("Error deleting session: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	} else if count == 0 {
 		return c.Status(404).SendString(constants.ErrorU004)

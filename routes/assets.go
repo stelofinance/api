@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"log"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/stelofinance/api/constants"
 	"github.com/stelofinance/api/database"
@@ -28,6 +30,7 @@ func postAsset(c *fiber.Ctx) error {
 	})
 
 	if err != nil {
+		log.Printf("Error creating asset: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -62,6 +65,7 @@ func putAssetValue(c *fiber.Ctx) error {
 		return c.Status(404).SendString(constants.ErrorI000)
 	}
 	if err != nil {
+		log.Printf("Error updating asset value: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -99,6 +103,7 @@ func putAssetName(c *fiber.Ctx) error {
 		return c.Status(404).SendString(constants.ErrorI000)
 	}
 	if err != nil {
+		log.Printf("Error updating asset name: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -120,6 +125,7 @@ func deleteAsset(c *fiber.Ctx) error {
 		return c.Status(404).SendString(constants.ErrorI000)
 	}
 	if err != nil {
+		log.Printf("Error deleting asset: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 

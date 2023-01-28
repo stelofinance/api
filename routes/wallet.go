@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -31,6 +32,7 @@ func getAssets(c *fiber.Ctx) error {
 	// Get all the assets (preloading basically)
 	assets, err := database.Q.GetAssetsByIds(c.Context(), assetIDs)
 	if err != nil {
+		log.Printf("Error getting assets: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -79,6 +81,7 @@ func postTransaction(c *fiber.Ctx) error {
 	tx, err := database.DB.Begin(c.Context())
 	defer tx.Rollback(c.Context())
 	if err != nil {
+		log.Printf("Error creating db transaction: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	qtx := database.Q.WithTx(tx)
@@ -92,6 +95,7 @@ func postTransaction(c *fiber.Ctx) error {
 	}
 	assets, err := qtx.GetAssetsIdNameByNames(c.Context(), assetNames)
 	if err != nil {
+		log.Printf("Error getting assets id & name: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -112,6 +116,7 @@ func postTransaction(c *fiber.Ctx) error {
 		})
 
 		if err != nil {
+			log.Printf("Error subtracting quantity from asset: {%v}", err.Error())
 			return c.Status(500).SendString(constants.ErrorS000)
 		} else if rows == 0 {
 			return c.Status(400).SendString(constants.ErrorI001)
@@ -129,6 +134,7 @@ func postTransaction(c *fiber.Ctx) error {
 	if body.Type == 0 {
 		walletID, err := qtx.GetWalletByUsername(c.Context(), body.Recipient)
 		if err != nil || !walletID.Valid {
+			log.Printf("Error getting wallet: {%v}", err.Error())
 			return c.Status(500).SendString(constants.ErrorU003)
 		}
 		recipientWalletID = walletID.Int64
@@ -136,6 +142,7 @@ func postTransaction(c *fiber.Ctx) error {
 	} else if body.Type == 1 {
 		wallet, err := qtx.GetWalletIdAndWebhookByAddress(c.Context(), body.Recipient)
 		if err != nil {
+			log.Printf("Error getting wallet id & webhook: {%v}", err.Error())
 			return c.Status(500).SendString(constants.ErrorW000)
 		}
 		recipientWalletID = wallet.ID
@@ -160,6 +167,7 @@ func postTransaction(c *fiber.Ctx) error {
 			"assets":    body.Assets,
 		})
 		if err != nil {
+			log.Printf("Error creating json body: {%v}", err.Error())
 			return c.Status(500).SendString(constants.ErrorS000)
 		}
 		responseBody := bytes.NewBuffer(postBody)
@@ -167,6 +175,7 @@ func postTransaction(c *fiber.Ctx) error {
 		// Hit the webhook
 		resp, err := http.Post(webhook.String, "application/json", responseBody)
 		if err != nil {
+			log.Printf("Error posting to webhook: {%v}", err.Error())
 			return c.Status(500).SendString(constants.ErrorS000)
 		}
 		if resp.StatusCode != 200 {
@@ -183,6 +192,7 @@ func postTransaction(c *fiber.Ctx) error {
 		})
 
 		if err != nil {
+			log.Printf("Error adding asset quantity: {%v}", err.Error())
 			return c.Status(500).SendString(constants.ErrorS000)
 		} else if rows == 0 {
 			err := qtx.CreateWalletAsset(c.Context(), db.CreateWalletAssetParams{
@@ -192,6 +202,7 @@ func postTransaction(c *fiber.Ctx) error {
 			})
 
 			if err != nil {
+				log.Printf("Error creating wallet asset: {%v}", err.Error())
 				return c.Status(500).SendString(constants.ErrorS000)
 			}
 		}
@@ -227,12 +238,45 @@ func postTransaction(c *fiber.Ctx) error {
 	})
 
 	if insertErrorOccured {
+		log.Printf("Error inserting transaction assets: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
 	tx.Commit(c.Context())
 
-	// TODO: Add in websocket support
+	// Send to centrifugo cannel
+	go func(recipient int64, sender int64, assets map[string]int64) {
+		jsonBody, err := json.Marshal(fiber.Map{
+			"method": "publish",
+			"params": fiber.Map{
+				"channel": "wallet:transactions#" + strconv.FormatInt(recipientWalletID, 10),
+				"data": fiber.Map{
+					"sender": sender,
+					"assets": assets,
+				},
+			},
+		})
+		if err != nil {
+			log.Printf("Error creating json body for centrifugo: {%v}", err.Error())
+			return
+		}
+
+		req, err := http.NewRequest("POST", tools.EnvVars.CentrifugoAddr, bytes.NewBuffer(jsonBody))
+		if err != nil {
+			log.Printf("Error creating req to centrifugo: {%v}", err.Error())
+			return
+		}
+
+		req.Header.Set("Authorization", "apikey "+tools.EnvVars.CentrifugoKey)
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Printf("Error making request to centrifugo: {%v}", err.Error())
+			return
+		}
+		resp.Body.Close()
+	}(recipientWalletID, c.Locals("wid").(int64), body.Assets)
 
 	return c.Status(201).SendString("Transaction created")
 }
@@ -262,6 +306,7 @@ func getTransactions(c *fiber.Ctx) error {
 		Offset:          query.Offset,
 	})
 	if err != nil {
+		log.Printf("Error getting transactions: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -272,6 +317,7 @@ func getTransactions(c *fiber.Ctx) error {
 
 	transactionAssets, err := database.Q.GetTransactionAssetsByTransactionIds(c.Context(), transactionIDs)
 	if err != nil {
+		log.Printf("Error getting tx assets by tx ids: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -282,6 +328,7 @@ func getTransactions(c *fiber.Ctx) error {
 
 	assets, err := database.Q.GetAssetsByIds(c.Context(), assetIDs)
 	if err != nil {
+		log.Printf("Error getting assets: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -351,6 +398,7 @@ func deleteTransaction(c *fiber.Ctx) error {
 		ID:                params.TransactionID,
 	})
 	if err != nil {
+		log.Printf("Error deleting transaction: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	if rows == 0 {
@@ -379,6 +427,7 @@ func deleteTransactions(c *fiber.Ctx) error {
 	})
 
 	if err != nil {
+		log.Printf("Error deleteing transactions: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -408,6 +457,7 @@ func postUserToWallet(c *fiber.Ctx) error {
 		UserID: c.Locals("uid").(int64),
 	})
 	if err != nil {
+		log.Printf("Error counting wallets: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	if count == 0 {
@@ -462,6 +512,7 @@ func deleteUserFromWallet(c *fiber.Ctx) error {
 		UserID:   params.UserID,
 	})
 	if err != nil {
+		log.Printf("Error deleting wallet user: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -471,6 +522,7 @@ func deleteUserFromWallet(c *fiber.Ctx) error {
 		WalletID: c.Locals("wid").(int64),
 	})
 	if err != nil {
+		log.Printf("Error deleting user session: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -480,6 +532,7 @@ func deleteUserFromWallet(c *fiber.Ctx) error {
 func getAssignedUsers(c *fiber.Ctx) error {
 	assignedUsers, err := database.Q.GetAssignedUsersByWalletId(c.Context(), c.Locals("wid").(int64))
 	if err != nil {
+		log.Printf("Error getting assinged users: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -506,6 +559,7 @@ func putWalletOwner(c *fiber.Ctx) error {
 	tx, err := database.DB.Begin(c.Context())
 	defer tx.Rollback(c.Context())
 	if err != nil {
+		log.Printf("Error creating db transaction: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	qtx := database.Q.WithTx(tx)
@@ -520,6 +574,7 @@ func putWalletOwner(c *fiber.Ctx) error {
 		return c.Status(400).SendString(constants.ErrorW007)
 	}
 	if err != nil {
+		log.Printf("Error updating wallet user: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -529,6 +584,7 @@ func putWalletOwner(c *fiber.Ctx) error {
 		UserID_2: c.Locals("uid").(int64),
 	})
 	if err != nil {
+		log.Printf("Error updating wallet user id: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -556,6 +612,7 @@ func postWalletSession(c *fiber.Ctx) error {
 		UsedAt: time.Now(),
 	})
 	if err != nil {
+		log.Printf("Error creating wallet session: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -570,6 +627,7 @@ func postWalletSession(c *fiber.Ctx) error {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	jwtString, err := token.SignedString(tools.EnvVars.JwtSecret)
 	if err != nil {
+		log.Printf("Error creating JWT: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -604,6 +662,7 @@ func refreshWalletSession(c *fiber.Ctx) error {
 	})
 
 	if err != nil {
+		log.Printf("Error updating wallet session used at: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	if rows == 0 {
@@ -621,6 +680,7 @@ func refreshWalletSession(c *fiber.Ctx) error {
 	token = jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	jwtString, err := token.SignedString(tools.EnvVars.JwtSecret)
 	if err != nil {
+		log.Printf("Error creating JWT: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -633,6 +693,7 @@ func refreshWalletSession(c *fiber.Ctx) error {
 func getWalletSessions(c *fiber.Ctx) error {
 	walletSessions, err := database.Q.GetWalletSessionsByWalletId(c.Context(), c.Locals("wid").(int64))
 	if err != nil {
+		log.Printf("Error getting wallet sessions: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -654,6 +715,7 @@ func deleteWalletSession(c *fiber.Ctx) error {
 
 	rows, err := database.Q.DeleteWalletSession(c.Context(), params.SessionID)
 	if err != nil {
+		log.Printf("Error deleting wallet session: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	if rows == 0 {
@@ -667,6 +729,7 @@ func deleteWalletSessions(c *fiber.Ctx) error {
 	err := database.Q.DeleteWalletSessionsByWalletId(c.Context(), c.Locals("wid").(int64))
 
 	if err != nil {
+		log.Printf("Error deleting wallet sessions: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -677,6 +740,7 @@ func deleteWallet(c *fiber.Ctx) error {
 	tx, err := database.DB.Begin(c.Context())
 	defer tx.Rollback(c.Context())
 	if err != nil {
+		log.Printf("Error creating db transaction: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	qtx := database.Q.WithTx(tx)
@@ -687,6 +751,7 @@ func deleteWallet(c *fiber.Ctx) error {
 		UserID: c.Locals("uid").(int64),
 	})
 	if err != nil {
+		log.Printf("Error counting wallets: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	if count == 0 {
@@ -696,9 +761,11 @@ func deleteWallet(c *fiber.Ctx) error {
 	// Check if wallet is primary
 	user, err := qtx.GetUserById(c.Context(), c.Locals("uid").(int64))
 	if err != nil {
+		log.Printf("Error getting user: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	if !user.WalletID.Valid {
+		log.Printf("Error, user created without wallet: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	if user.WalletID.Int64 == c.Locals("wid").(int64) {
@@ -708,12 +775,14 @@ func deleteWallet(c *fiber.Ctx) error {
 	// Get all the assets currently in the wallet
 	assets, err := qtx.GetWalletAssets(c.Context(), c.Locals("wid").(int64))
 	if err != nil {
+		log.Printf("Error getting wallet assets: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
 	// Delete all the assets in the wallet
 	_, err = qtx.DeleteWalletAssets(c.Context(), c.Locals("wid").(int64))
 	if err != nil {
+		log.Printf("Error deleting wallet assets: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -726,6 +795,7 @@ func deleteWallet(c *fiber.Ctx) error {
 		})
 
 		if err != nil {
+			log.Printf("Error adding wallet asset quantity: {%v}", err.Error())
 			return c.Status(500).SendString(constants.ErrorS000)
 		} else if rows == 0 {
 			err := qtx.CreateWalletAsset(c.Context(), db.CreateWalletAssetParams{
@@ -735,6 +805,7 @@ func deleteWallet(c *fiber.Ctx) error {
 			})
 
 			if err != nil {
+				log.Printf("Error creating wallet asset: {%v}", err.Error())
 				return c.Status(500).SendString(constants.ErrorS000)
 			}
 		}
@@ -770,6 +841,7 @@ func deleteWallet(c *fiber.Ctx) error {
 	})
 
 	if insertErrorOccured {
+		log.Printf("Error creating transaction assets: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -782,12 +854,14 @@ func deleteWallet(c *fiber.Ctx) error {
 		WalletID: user.WalletID.Int64,
 	})
 	if err != nil {
+		log.Printf("Error updating user session: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
 	// Delete the wallet
 	_, err = qtx.DeleteWallet(c.Context(), c.Locals("wid").(int64))
 	if err != nil {
+		log.Printf("Error deleting wallet: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -802,6 +876,7 @@ func deleteWallet(c *fiber.Ctx) error {
 	})
 	jwtString, err := token.SignedString(tools.EnvVars.JwtSecret)
 	if err != nil {
+		log.Printf("Error creating JWT: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -834,9 +909,11 @@ func putWalletWebhook(c *fiber.Ctx) error {
 	// Check if wallet is primary
 	user, err := database.Q.GetUserById(c.Context(), c.Locals("uid").(int64))
 	if err != nil {
+		log.Printf("Error getting user: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	if !user.WalletID.Valid {
+		log.Printf("Error, user created without wallet: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	if user.WalletID.Int64 == c.Locals("wid").(int64) {
@@ -852,6 +929,7 @@ func putWalletWebhook(c *fiber.Ctx) error {
 		},
 	})
 	if err != nil {
+		log.Printf("Error updating wallet webhook: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
@@ -861,6 +939,7 @@ func putWalletWebhook(c *fiber.Ctx) error {
 func deleteWalletWebhook(c *fiber.Ctx) error {
 	err := database.Q.DeleteWalletWebhook(c.Context(), c.Locals("wid").(int64))
 	if err != nil {
+		log.Printf("Error deleting wallet webhook: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
