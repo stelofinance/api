@@ -9,7 +9,7 @@ import (
 var validate = validator.New()
 
 func CentrifugoRouter(app fiber.Router) {
-	app.Post("/connect", auth.New(auth.Wallet), postConnection)
+	app.Get("/token", auth.New(auth.Wallet), getCentrifugoToken)
 }
 
 func UsersRouter(app fiber.Router) {

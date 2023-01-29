@@ -267,7 +267,7 @@ func postTransaction(c *fiber.Ctx) error {
 			return
 		}
 
-		req.Header.Set("Authorization", "apikey "+tools.EnvVars.CentrifugoKey)
+		req.Header.Set("Authorization", "apikey "+tools.EnvVars.CentrifugoApiKey)
 
 		client := &http.Client{}
 		resp, err := client.Do(req)
