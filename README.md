@@ -13,6 +13,8 @@ This doesn't need to be set in a .env file during development, it's absence will
 - `PRODUCTION_ENV` Set to `true` when deployment is running in production
 
 ## Database setup
+Install the `golang-migrate` software using the `postgres cockroachdb` tags (disregard cockroachdb if you're just using postgres)
+
 Using the `golang-migrate` software, run the following command in the repo root
  - `migrate -database $COCKROACHDB_URL -path migrations/ up`
 Where `$COCKROACHDB_URL` is an environment variable. Note, Stelo uses [CockroachDB](https://www.cockroachlabs.com/), if you wish to also then prefix this connection string with `cockroachdb://` not `postgresql://`
