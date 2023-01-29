@@ -697,11 +697,24 @@ func getWalletSessions(c *fiber.Ctx) error {
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
-	if walletSessions == nil {
-		walletSessions = []db.WalletSession{}
+	type walletSessionAPI struct {
+		ID       int64     `json:"id"`
+		WalletID int64     `json:"wallet_id"`
+		Name     string    `json:"name"`
+		UsedAt   time.Time `json:"used_at"`
 	}
 
-	return c.Status(200).JSON(walletSessions)
+	walletSessionsAPI := []walletSessionAPI{}
+	for _, walletSession := range walletSessions {
+		walletSessionsAPI = append(walletSessionsAPI, walletSessionAPI{
+			ID:       walletSession.ID,
+			WalletID: walletSession.WalletID,
+			Name:     walletSession.Name.String,
+			UsedAt:   walletSession.UsedAt,
+		})
+	}
+
+	return c.Status(200).JSON(walletSessionsAPI)
 }
 
 func deleteWalletSession(c *fiber.Ctx) error {
