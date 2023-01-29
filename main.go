@@ -26,7 +26,7 @@ func main() {
 
 	// Log request
 	app.Use(logger.New(logger.Config{
-		Format: "[${ip}] ${status} - ${method} ${path}\n",
+		Format: "${status} - ${method} ${path}\n",
 	}))
 
 	// Setup routes
