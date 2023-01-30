@@ -133,17 +133,19 @@ func postTransaction(c *fiber.Ctx) error {
 	// Username type
 	if body.Type == 0 {
 		walletID, err := qtx.GetWalletByUsername(c.Context(), body.Recipient)
-		if err != nil || !walletID.Valid {
-			log.Printf("Error getting wallet: {%v}", err.Error())
-			return c.Status(500).SendString(constants.ErrorU003)
+		if err != nil {
+			return c.Status(404).SendString(constants.ErrorU003)
+		}
+		if !walletID.Valid {
+			log.Printf("user created without wallet")
+			return c.Status(500).SendString(constants.ErrorS000)
 		}
 		recipientWalletID = walletID.Int64
 		// Address type
 	} else if body.Type == 1 {
 		wallet, err := qtx.GetWalletIdAndWebhookByAddress(c.Context(), body.Recipient)
 		if err != nil {
-			log.Printf("Error getting wallet id & webhook: {%v}", err.Error())
-			return c.Status(500).SendString(constants.ErrorW000)
+			return c.Status(404).SendString(constants.ErrorW000)
 		}
 		recipientWalletID = wallet.ID
 		webhook = wallet.Webhook
