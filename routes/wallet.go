@@ -668,7 +668,7 @@ func refreshWalletSession(c *fiber.Ctx) error {
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	if rows == 0 {
-		return c.Status(400).SendString(constants.ErrorW005)
+		return c.Status(404).SendString(constants.ErrorW005)
 	}
 
 	// Generate the JWT

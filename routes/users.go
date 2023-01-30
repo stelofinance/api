@@ -101,7 +101,7 @@ func postSession(c *fiber.Ctx) error {
 
 	// Check if user wasn't found
 	if err != nil {
-		return c.Status(400).SendString(constants.ErrorU003)
+		return c.Status(404).SendString(constants.ErrorU003)
 	}
 
 	// Return error if password doesn't match hash
