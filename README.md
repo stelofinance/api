@@ -1,5 +1,8 @@
-# Stelo Finance API
+# Stelo Finance
 This is the Backend API for the Stelo Finance platform, providing it's core functionality.
+
+## API Documentation
+If you're looking for the API documentation, head over to our [docs](https://docs.stelo.finance)
 
 ## Environment Variables
 In development use a .env file to set these, in prod set them in the environment
