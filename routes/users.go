@@ -1,12 +1,12 @@
 package routes
 
 import (
-	"database/sql"
 	"log"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stelofinance/api/constants"
 	"github.com/stelofinance/api/database"
 	"github.com/stelofinance/api/db"
@@ -68,7 +68,7 @@ func postUser(c *fiber.Ctx) error {
 	}
 
 	_, err = qtx.UpdateUserWallet(c.Context(), db.UpdateUserWalletParams{
-		WalletID: sql.NullInt64{Int64: walletID, Valid: true},
+		WalletID: pgtype.Int8{Int64: walletID, Valid: true},
 		ID:       userID,
 	})
 	if err != nil {

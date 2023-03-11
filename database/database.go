@@ -2,18 +2,25 @@ package database
 
 import (
 	"context"
+	"fmt"
+	"os"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stelofinance/api/db"
 	"github.com/stelofinance/api/tools"
 )
 
-var DB *pgx.Conn
+var DB *pgxpool.Pool
 var Q *db.Queries
 
 func ConnectDb() error {
-	conn, err := pgx.Connect(context.Background(), tools.EnvVars.DbConnection)
-	DB = conn
-	Q = db.New(conn)
+	dbpool, err := pgxpool.New(context.Background(), tools.EnvVars.DbConnection)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to create connection pool: %v\n", err)
+		os.Exit(1)
+	}
+
+	DB = dbpool
+	Q = db.New(dbpool)
 	return err
 }
