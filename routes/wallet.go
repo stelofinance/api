@@ -2,7 +2,6 @@ package routes
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"log"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stelofinance/api/constants"
 	"github.com/stelofinance/api/database"
 	"github.com/stelofinance/api/db"
@@ -126,7 +126,7 @@ func postTransaction(c *fiber.Ctx) error {
 	// Now put assets in other wallet, first get their wallet ID though
 	// Create the wallet asset record if not already
 	var recipientWalletID int64
-	webhook := sql.NullString{
+	webhook := pgtype.Text{
 		String: "",
 		Valid:  false,
 	}
@@ -215,7 +215,7 @@ func postTransaction(c *fiber.Ctx) error {
 		SendingWalletID:   c.Locals("wid").(int64),
 		ReceivingWalletID: recipientWalletID,
 		CreatedAt:         time.Now(),
-		Memo: sql.NullString{
+		Memo: pgtype.Text{
 			String: body.Memo,
 			Valid:  body.Memo != "",
 		},
@@ -607,7 +607,7 @@ func postWalletSession(c *fiber.Ctx) error {
 	// Add wallet session into db
 	walletSessionID, err := database.Q.CreateWalletSession(c.Context(), db.CreateWalletSessionParams{
 		WalletID: c.Locals("wid").(int64),
-		Name: sql.NullString{
+		Name: pgtype.Text{
 			String: body.Name,
 			Valid:  body.Name != "",
 		},
@@ -831,7 +831,7 @@ func deleteWallet(c *fiber.Ctx) error {
 		SendingWalletID:   user.WalletID.Int64,
 		ReceivingWalletID: user.WalletID.Int64,
 		CreatedAt:         time.Now(),
-		Memo: sql.NullString{
+		Memo: pgtype.Text{
 			String: "funds from deleted wallet",
 			Valid:  true,
 		},
@@ -938,7 +938,7 @@ func putWalletWebhook(c *fiber.Ctx) error {
 	// Update webhook
 	err = database.Q.UpdateWalletWebhook(c.Context(), db.UpdateWalletWebhookParams{
 		ID: c.Locals("wid").(int64),
-		Webhook: sql.NullString{
+		Webhook: pgtype.Text{
 			String: body.Webhook,
 			Valid:  true,
 		},
