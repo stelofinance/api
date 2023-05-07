@@ -1,0 +1,12 @@
+BEGIN;
+
+TRUNCATE user_session;
+TRUNCATE wallet_session;
+
+ALTER TABLE user_session ADD COLUMN used_at TIMESTAMPTZ NOT NULL;
+ALTER TABLE wallet_session ADD COLUMN used_at TIMESTAMPTZ NOT NULL;
+
+ALTER TABLE user_session DROP COLUMN IF EXISTS key;
+ALTER TABLE wallet_session DROP COLUMN IF EXISTS key;
+
+COMMIT;

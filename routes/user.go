@@ -5,12 +5,9 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v4"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stelofinance/api/constants"
 	"github.com/stelofinance/api/database"
 	"github.com/stelofinance/api/db"
-	auth "github.com/stelofinance/api/middlewares"
 	"github.com/stelofinance/api/tools"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -228,24 +225,8 @@ func putActiveWallet(c *fiber.Ctx) error {
 		}
 	}
 
-	// Create the JWT and set as cookie
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &auth.UserJWT{
-		UserID:    c.Locals("uid").(int64), // UNSAFE: Type assertion could panic
-		SessionID: c.Locals("sid").(int64), // UNSAFE: Type assertion could panic
-		WalletID:  body.WalletID,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(time.Minute * 30).Unix(),
-		},
-	})
-	jwtString, err := token.SignedString(tools.EnvVars.JwtSecret)
-	if err != nil {
-		log.Printf("Error creating JWT: {%v}", err.Error())
-		return c.Status(500).SendString(constants.ErrorS000)
-	}
-
 	// Update their session
-	// UNSAFE: Type assertion could panic
-	err = database.Q.UpdateUserSessionWallet(c.Context(), db.UpdateUserSessionWalletParams{
+	err := database.Q.UpdateUserSessionWallet(c.Context(), db.UpdateUserSessionWalletParams{
 		ID:       c.Locals("sid").(int64),
 		WalletID: body.WalletID,
 	})
@@ -253,16 +234,6 @@ func putActiveWallet(c *fiber.Ctx) error {
 		log.Printf("Error updating session: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
-
-	// Set the cookie
-	cookie := fiber.Cookie{
-		Name:     "ujwt",
-		Value:    jwtString,
-		Secure:   tools.EnvVars.ProductionEnv,
-		HTTPOnly: true,
-		SameSite: "Strict",
-	}
-	c.Cookie(&cookie)
 
 	return c.Status(200).SendString("Active wallet updated")
 }
@@ -283,7 +254,7 @@ func deleteSession(c *fiber.Ctx) error {
 
 	// Clear the cookie
 	c.Cookie(&fiber.Cookie{
-		Name:     "ujwt",
+		Name:     "stelo_token",
 		Value:    "",
 		Secure:   tools.EnvVars.ProductionEnv,
 		HTTPOnly: true,
@@ -311,7 +282,7 @@ func deleteSessionById(c *fiber.Ctx) error {
 	if int64(id) == c.Locals("sid").(int64) {
 		// Clear the cookie
 		c.Cookie(&fiber.Cookie{
-			Name:     "ujwt",
+			Name:     "stelo_token",
 			Value:    "",
 			Secure:   tools.EnvVars.ProductionEnv,
 			HTTPOnly: true,
@@ -329,7 +300,7 @@ func deleteSessions(c *fiber.Ctx) error {
 
 	// Clear their session cookie
 	c.Cookie(&fiber.Cookie{
-		Name:     "ujwt",
+		Name:     "stelo_token",
 		Value:    "",
 		Secure:   tools.EnvVars.ProductionEnv,
 		HTTPOnly: true,

@@ -30,7 +30,6 @@ func main() {
 	}))
 
 	// Setup routes
-	routes.CentrifugoRouter(app.Group("/centrifugo"))
 	routes.UsersRouter(app.Group("/users"))
 	routes.UserRouter(app.Group("/user", auth.New(auth.User)))
 	routes.WalletRouter(app.Group("/wallet"))

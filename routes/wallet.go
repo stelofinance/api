@@ -3,20 +3,16 @@ package routes
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/dchest/uniuri"
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v4"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stelofinance/api/constants"
 	"github.com/stelofinance/api/database"
 	"github.com/stelofinance/api/db"
-	"github.com/stelofinance/api/middlewares"
-	"github.com/stelofinance/api/tools"
 )
 
 func getAssets(c *fiber.Ctx) error {
@@ -246,39 +242,40 @@ func postTransaction(c *fiber.Ctx) error {
 
 	tx.Commit(c.Context())
 
-	// Send to centrifugo cannel
-	go func(recipient int64, sender int64, assets map[string]int64) {
-		jsonBody, err := json.Marshal(fiber.Map{
-			"method": "publish",
-			"params": fiber.Map{
-				"channel": "wallet:transactions#" + strconv.FormatInt(recipientWalletID, 10),
-				"data": fiber.Map{
-					"sender": sender,
-					"assets": assets,
-				},
-			},
-		})
-		if err != nil {
-			log.Printf("Error creating json body for centrifugo: {%v}", err.Error())
-			return
-		}
+	// Send to pusher cannel
 
-		req, err := http.NewRequest("POST", tools.EnvVars.CentrifugoAddr, bytes.NewBuffer(jsonBody))
-		if err != nil {
-			log.Printf("Error creating req to centrifugo: {%v}", err.Error())
-			return
-		}
+	// go func(recipient int64, sender int64, assets map[string]int64) {
+	// 	jsonBody, err := json.Marshal(fiber.Map{
+	// 		"method": "publish",
+	// 		"params": fiber.Map{
+	// 			"channel": "wallet:transactions#" + strconv.FormatInt(recipientWalletID, 10),
+	// 			"data": fiber.Map{
+	// 				"sender": sender,
+	// 				"assets": assets,
+	// 			},
+	// 		},
+	// 	})
+	// 	if err != nil {
+	// 		log.Printf("Error creating json body for centrifugo: {%v}", err.Error())
+	// 		return
+	// 	}
 
-		req.Header.Set("Authorization", "apikey "+tools.EnvVars.CentrifugoApiKey)
+	// 	req, err := http.NewRequest("POST", tools.EnvVars.CentrifugoAddr, bytes.NewBuffer(jsonBody))
+	// 	if err != nil {
+	// 		log.Printf("Error creating req to centrifugo: {%v}", err.Error())
+	// 		return
+	// 	}
 
-		client := &http.Client{}
-		resp, err := client.Do(req)
-		if err != nil {
-			log.Printf("Error making request to centrifugo: {%v}", err.Error())
-			return
-		}
-		resp.Body.Close()
-	}(recipientWalletID, c.Locals("wid").(int64), body.Assets)
+	// 	req.Header.Set("Authorization", "apikey "+tools.EnvVars.CentrifugoApiKey)
+
+	// 	client := &http.Client{}
+	// 	resp, err := client.Do(req)
+	// 	if err != nil {
+	// 		log.Printf("Error making request to centrifugo: {%v}", err.Error())
+	// 		return
+	// 	}
+	// 	resp.Body.Close()
+	// }(recipientWalletID, c.Locals("wid").(int64), body.Assets)
 
 	return c.Status(201).SendString("Transaction created")
 }
@@ -604,91 +601,24 @@ func postWalletSession(c *fiber.Ctx) error {
 		return c.Status(400).SendString(constants.ErrorG000)
 	}
 
+	key := uniuri.NewLen(27)
+
 	// Add wallet session into db
-	walletSessionID, err := database.Q.CreateWalletSession(c.Context(), db.CreateWalletSessionParams{
+	err := database.Q.CreateWalletSession(c.Context(), db.CreateWalletSessionParams{
+		Key:      key,
 		WalletID: c.Locals("wid").(int64),
 		Name: pgtype.Text{
 			String: body.Name,
 			Valid:  body.Name != "",
 		},
-		UsedAt: time.Now(),
 	})
 	if err != nil {
 		log.Printf("Error creating wallet session: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
-	// Generate the JWT
-	claims := &auth.WalletJWT{
-		SessionID: walletSessionID,
-		WalletID:  c.Locals("wid").(int64),
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(time.Minute * 30).Unix(),
-		},
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	jwtString, err := token.SignedString(tools.EnvVars.JwtSecret)
-	if err != nil {
-		log.Printf("Error creating JWT: {%v}", err.Error())
-		return c.Status(500).SendString(constants.ErrorS000)
-	}
-
 	return c.Status(201).JSON(fiber.Map{
-		"token":   jwtString,
-		"message": "Session created, token attached",
-	})
-}
-
-func refreshWalletSession(c *fiber.Ctx) error {
-	body := struct {
-		Token string `json:"token"`
-	}{}
-
-	if c.BodyParser(&body) != nil {
-		return c.Status(400).SendString(constants.ErrorG000)
-	}
-
-	claims := &auth.WalletJWT{}
-	token, err := jwt.ParseWithClaims(body.Token, claims, func(token *jwt.Token) (interface{}, error) {
-		return tools.EnvVars.JwtSecret, nil
-	})
-
-	if err != nil && !errors.Is(err, jwt.ErrTokenExpired) {
-		// TODO: Better error than this
-		return c.Status(400).SendString(constants.ErrorG000)
-	}
-
-	rows, err := database.Q.UpdateWalletSessionUsedAt(c.Context(), db.UpdateWalletSessionUsedAtParams{
-		UsedAt: time.Now(),
-		ID:     claims.SessionID,
-	})
-
-	if err != nil {
-		log.Printf("Error updating wallet session used at: {%v}", err.Error())
-		return c.Status(500).SendString(constants.ErrorS000)
-	}
-	if rows == 0 {
-		return c.Status(404).SendString(constants.ErrorW005)
-	}
-
-	// Generate the JWT
-	claims = &auth.WalletJWT{
-		SessionID: claims.SessionID,
-		WalletID:  claims.WalletID,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(time.Minute * 30).Unix(),
-		},
-	}
-	token = jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	jwtString, err := token.SignedString(tools.EnvVars.JwtSecret)
-	if err != nil {
-		log.Printf("Error creating JWT: {%v}", err.Error())
-		return c.Status(500).SendString(constants.ErrorS000)
-	}
-
-	return c.Status(201).JSON(fiber.Map{
-		"token":   jwtString,
-		"message": "Session refreshed, token attached",
+		"token": "stlw_" + key,
 	})
 }
 
@@ -700,10 +630,9 @@ func getWalletSessions(c *fiber.Ctx) error {
 	}
 
 	type walletSessionAPI struct {
-		ID       int64     `json:"id"`
-		WalletID int64     `json:"wallet_id"`
-		Name     string    `json:"name"`
-		UsedAt   time.Time `json:"used_at"`
+		ID       int64  `json:"id"`
+		WalletID int64  `json:"wallet_id"`
+		Name     string `json:"name"`
 	}
 
 	walletSessionsAPI := []walletSessionAPI{}
@@ -712,7 +641,6 @@ func getWalletSessions(c *fiber.Ctx) error {
 			ID:       walletSession.ID,
 			WalletID: walletSession.WalletID,
 			Name:     walletSession.Name.String,
-			UsedAt:   walletSession.UsedAt,
 		})
 	}
 
@@ -879,31 +807,6 @@ func deleteWallet(c *fiber.Ctx) error {
 		log.Printf("Error deleting wallet: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
-
-	// Create new JWT for their cookie
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &auth.UserJWT{
-		UserID:    c.Locals("uid").(int64), // UNSAFE: Type assertion could panic
-		SessionID: c.Locals("sid").(int64), // UNSAFE: Type assertion could panic
-		WalletID:  user.WalletID.Int64,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(time.Minute * 30).Unix(),
-		},
-	})
-	jwtString, err := token.SignedString(tools.EnvVars.JwtSecret)
-	if err != nil {
-		log.Printf("Error creating JWT: {%v}", err.Error())
-		return c.Status(500).SendString(constants.ErrorS000)
-	}
-
-	// Set the cookie
-	cookie := fiber.Cookie{
-		Name:     "ujwt",
-		Value:    jwtString,
-		Secure:   tools.EnvVars.ProductionEnv,
-		HTTPOnly: true,
-		SameSite: "Strict",
-	}
-	c.Cookie(&cookie)
 
 	tx.Commit(c.Context())
 

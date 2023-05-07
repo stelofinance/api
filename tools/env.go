@@ -8,13 +8,9 @@ import (
 )
 
 type envVariables struct {
-	DbConnection     string
-	ProductionEnv    bool
-	JwtSecret        []byte
-	AdminKey         string
-	CentrifugoApiKey string
-	CentrifugoAddr   string
-	CentrifugoJWTKey []byte
+	DbConnection  string
+	ProductionEnv bool
+	AdminKey      string
 }
 
 var EnvVars envVariables
@@ -39,34 +35,14 @@ func LoadEnv() error {
 	if err != nil {
 		return err
 	}
-	jwtSecret, err := getEnvVariable("JWT_SECRET")
-	if err != nil {
-		return err
-	}
 	adminKey, err := getEnvVariable("ADMIN_API_KEY")
 	if err != nil {
 		return err
 	}
-	centrifugoKey, err := getEnvVariable("CENTRIFUGO_API_KEY")
-	if err != nil {
-		return err
-	}
-	centrifugoAddr, err := getEnvVariable("CENTRIFUGO_API_ADDR")
-	if err != nil {
-		return err
-	}
-	centrifugoJwtKey, err := getEnvVariable("CENTRIFUGO_JWT_KEY")
-	if err != nil {
-		return err
-	}
 	EnvVars = envVariables{
-		DbConnection:     dbConnectionString,
-		ProductionEnv:    prodEnv,
-		JwtSecret:        []byte(jwtSecret),
-		AdminKey:         adminKey,
-		CentrifugoApiKey: centrifugoKey,
-		CentrifugoAddr:   centrifugoAddr,
-		CentrifugoJWTKey: []byte(centrifugoJwtKey),
+		DbConnection:  dbConnectionString,
+		ProductionEnv: prodEnv,
+		AdminKey:      adminKey,
 	}
 	return nil
 }

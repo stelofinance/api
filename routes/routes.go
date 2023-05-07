@@ -8,10 +8,6 @@ import (
 
 var validate = validator.New()
 
-func CentrifugoRouter(app fiber.Router) {
-	app.Get("/token", auth.New(auth.Wallet), getCentrifugoToken)
-}
-
 func UsersRouter(app fiber.Router) {
 	app.Post("/", auth.New(auth.Guest), postUser)
 	app.Post("/:username/sessions", auth.New(auth.Guest), postSession)
@@ -42,7 +38,6 @@ func WalletRouter(app fiber.Router) {
 	app.Delete("/users/:userid", auth.New(auth.User), deleteUserFromWallet)
 	app.Post("/sessions", auth.New(auth.User), postWalletSession)
 	app.Get("/sessions", auth.New(auth.User), getWalletSessions)
-	app.Post("/sessions/token", refreshWalletSession)
 	app.Delete("/sessions/:sessionid", auth.New(auth.User), deleteWalletSession)
 	app.Delete("/sessions", auth.New(auth.User), deleteWalletSessions)
 	app.Put("/owner", auth.New(auth.User), putWalletOwner)

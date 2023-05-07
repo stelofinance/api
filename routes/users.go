@@ -4,13 +4,11 @@ import (
 	"log"
 	"time"
 
+	"github.com/dchest/uniuri"
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v4"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stelofinance/api/constants"
 	"github.com/stelofinance/api/database"
 	"github.com/stelofinance/api/db"
-	"github.com/stelofinance/api/middlewares"
 	"github.com/stelofinance/api/tools"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -83,7 +81,8 @@ func postUser(c *fiber.Ctx) error {
 
 func postSession(c *fiber.Ctx) error {
 	type requestBody struct {
-		Password string `json:"password" validate:"required,max=32"`
+		Password    string `json:"password" validate:"required,max=32"`
+		ReturnToken bool   `json:"return_token"`
 	}
 
 	var body requestBody
@@ -110,9 +109,11 @@ func postSession(c *fiber.Ctx) error {
 		return c.Status(400).SendString(constants.ErrorU001)
 	}
 
+	key := uniuri.NewLen(27)
+
 	// Add session into DB
-	sessionID, err := database.Q.InsertUserSession(c.Context(), db.InsertUserSessionParams{
-		UsedAt:   time.Now(),
+	err = database.Q.InsertUserSession(c.Context(), db.InsertUserSessionParams{
+		Key:      key,
 		UserID:   user.ID,
 		WalletID: user.WalletID.Int64,
 	})
@@ -121,27 +122,17 @@ func postSession(c *fiber.Ctx) error {
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
-	// Create the JWT and set as cookie
-	// TODO: Change claims to int64
-	claims := &auth.UserJWT{
-		UserID:    int64(user.ID),
-		SessionID: int64(sessionID),
-		WalletID:  int64(user.WalletID.Int64),
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(time.Minute * 30).Unix(),
-		},
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	jwtString, err := token.SignedString(tools.EnvVars.JwtSecret)
-	if err != nil {
-		log.Printf("Error creating JWT: {%v}", err.Error())
-		return c.Status(500).SendString(constants.ErrorS000)
+	// Return in body if requested
+	if body.ReturnToken {
+		return c.Status(201).JSON(fiber.Map{
+			"token": "stlu_" + key,
+		})
 	}
 
-	// Set the cookie
+	// Create and set the cookie
 	cookie := fiber.Cookie{
-		Name:     "ujwt",
-		Value:    jwtString,
+		Name:     "stelo_token",
+		Value:    "stlu_" + key,
 		Secure:   tools.EnvVars.ProductionEnv,
 		HTTPOnly: true,
 		SameSite: "strict",
