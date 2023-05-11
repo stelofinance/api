@@ -262,8 +262,6 @@ func postTransaction(c *fiber.Ctx) error {
 			}
 		}
 
-		fmt.Println(data)
-
 		err := pusher.PusherClient.Trigger("private-wallet@"+fmt.Sprint(recipient), "transaction:incoming", data)
 		if err != nil {
 			log.Printf("Error posting transaction to Pusher: {%v}", err.Error())
