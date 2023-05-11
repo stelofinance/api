@@ -7,7 +7,8 @@ package db
 
 import (
 	"context"
-	"database/sql"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createWalletSession = `-- name: CreateWalletSession :exec
@@ -15,9 +16,9 @@ INSERT INTO wallet_session (key, wallet_id, name) VALUES ($1, $2, $3)
 `
 
 type CreateWalletSessionParams struct {
-	Key      string         `json:"key"`
-	WalletID int64          `json:"wallet_id"`
-	Name     sql.NullString `json:"name"`
+	Key      string      `json:"key"`
+	WalletID int64       `json:"wallet_id"`
+	Name     pgtype.Text `json:"name"`
 }
 
 func (q *Queries) CreateWalletSession(ctx context.Context, arg CreateWalletSessionParams) error {

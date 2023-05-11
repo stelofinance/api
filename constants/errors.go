@@ -32,4 +32,7 @@ const (
 
 	ErrorI000 = "I000: Asset Not Found"
 	ErrorI001 = "I001: Invalid Asset"
+
+	ErrorP000 = "P000: Invalid Auth Form"
+	ErrorP001 = "P001: Invalid Channel"
 )

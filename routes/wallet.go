@@ -3,6 +3,7 @@ package routes
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -10,9 +11,11 @@ import (
 
 	"github.com/dchest/uniuri"
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stelofinance/api/constants"
 	"github.com/stelofinance/api/database"
 	"github.com/stelofinance/api/db"
+	"github.com/stelofinance/api/pusher"
 )
 
 func getAssets(c *fiber.Ctx) error {
@@ -243,39 +246,29 @@ func postTransaction(c *fiber.Ctx) error {
 	tx.Commit(c.Context())
 
 	// Send to pusher cannel
+	go func(recipient int64, sender int64, memo string, assets map[string]int64) {
+		var data fiber.Map
 
-	// go func(recipient int64, sender int64, assets map[string]int64) {
-	// 	jsonBody, err := json.Marshal(fiber.Map{
-	// 		"method": "publish",
-	// 		"params": fiber.Map{
-	// 			"channel": "wallet:transactions#" + strconv.FormatInt(recipientWalletID, 10),
-	// 			"data": fiber.Map{
-	// 				"sender": sender,
-	// 				"assets": assets,
-	// 			},
-	// 		},
-	// 	})
-	// 	if err != nil {
-	// 		log.Printf("Error creating json body for centrifugo: {%v}", err.Error())
-	// 		return
-	// 	}
+		if memo != "" {
+			data = fiber.Map{
+				"sender": sender,
+				"memo":   memo,
+				"assets": assets,
+			}
+		} else {
+			data = fiber.Map{
+				"sender": sender,
+				"assets": assets,
+			}
+		}
 
-	// 	req, err := http.NewRequest("POST", tools.EnvVars.CentrifugoAddr, bytes.NewBuffer(jsonBody))
-	// 	if err != nil {
-	// 		log.Printf("Error creating req to centrifugo: {%v}", err.Error())
-	// 		return
-	// 	}
+		fmt.Println(data)
 
-	// 	req.Header.Set("Authorization", "apikey "+tools.EnvVars.CentrifugoApiKey)
-
-	// 	client := &http.Client{}
-	// 	resp, err := client.Do(req)
-	// 	if err != nil {
-	// 		log.Printf("Error making request to centrifugo: {%v}", err.Error())
-	// 		return
-	// 	}
-	// 	resp.Body.Close()
-	// }(recipientWalletID, c.Locals("wid").(int64), body.Assets)
+		err := pusher.PusherClient.Trigger("private-wallet@"+fmt.Sprint(recipient), "transaction:incoming", data)
+		if err != nil {
+			log.Printf("Error posting transaction to Pusher: {%v}", err.Error())
+		}
+	}(recipientWalletID, c.Locals("wid").(int64), body.Memo, body.Assets)
 
 	return c.Status(201).SendString("Transaction created")
 }

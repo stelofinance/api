@@ -13,6 +13,10 @@ func UsersRouter(app fiber.Router) {
 	app.Post("/:username/sessions", auth.New(auth.Guest), postSession)
 }
 
+func PusherRouter(app fiber.Router) {
+	app.Post("/auth", auth.New(auth.Wallet), postPusherAuth)
+}
+
 func UserRouter(app fiber.Router) {
 	app.Put("/username", putUsername)
 	app.Put("/password", putPassword)

@@ -11,6 +11,14 @@ type envVariables struct {
 	DbConnection  string
 	ProductionEnv bool
 	AdminKey      string
+	Pusher        PusherVariables
+}
+
+type PusherVariables struct {
+	Host      string
+	AppId     string
+	AppKey    string
+	AppSecret string
 }
 
 var EnvVars envVariables
@@ -39,10 +47,32 @@ func LoadEnv() error {
 	if err != nil {
 		return err
 	}
+	pusherHost, err := getEnvVariable("PUSHER_HOST")
+	if err != nil {
+		return err
+	}
+	pusherAppId, err := getEnvVariable("PUSHER_APP_ID")
+	if err != nil {
+		return err
+	}
+	pusherAppKey, err := getEnvVariable("PUSHER_APP_KEY")
+	if err != nil {
+		return err
+	}
+	pusherAppSecret, err := getEnvVariable("PUSHER_APP_SECRET")
+	if err != nil {
+		return err
+	}
 	EnvVars = envVariables{
 		DbConnection:  dbConnectionString,
 		ProductionEnv: prodEnv,
 		AdminKey:      adminKey,
+		Pusher: PusherVariables{
+			Host:      pusherHost,
+			AppId:     pusherAppId,
+			AppKey:    pusherAppKey,
+			AppSecret: pusherAppSecret,
+		},
 	}
 	return nil
 }

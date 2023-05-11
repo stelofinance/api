@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/stelofinance/api/database"
 	"github.com/stelofinance/api/middlewares"
+	"github.com/stelofinance/api/pusher"
 	"github.com/stelofinance/api/routes"
 	"github.com/stelofinance/api/tools"
 )
@@ -22,6 +23,9 @@ func main() {
 		log.Fatal("Failed to connect to database")
 	}
 
+	// Setup Pusher client
+	pusher.ConnectClient()
+
 	app := fiber.New()
 
 	// Log request
@@ -30,6 +34,7 @@ func main() {
 	}))
 
 	// Setup routes
+	routes.PusherRouter(app.Group("/pusher"))
 	routes.UsersRouter(app.Group("/users"))
 	routes.UserRouter(app.Group("/user", auth.New(auth.User)))
 	routes.WalletRouter(app.Group("/wallet"))

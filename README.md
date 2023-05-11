@@ -8,6 +8,10 @@ If you're looking for the API documentation, head over to our [docs](https://doc
 In development use a .env file to set these, in prod set them in the environment
 - `DB_CONNECTION_STRING` Set as the postgres URI connection string
 - `ADMIN_API_KEY` Set as the api key to access admin routes
+- `PUSHER_HOST` Set as the URL for the Pusher instance
+- `PUSHER_APP_ID` Set as the app id for the Pusher instance
+- `PUSHER_APP_KEY` Set as the app key for the Pusher instance
+- `PUSHER_APP_SECRET` Set as your app secret for the Pusher instance
 
 This doesn't need to be set in a .env file during development, it's absence will default it to false
 - `PRODUCTION_ENV` Set to `true` when deployment is running in production

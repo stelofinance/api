@@ -61,10 +61,10 @@ type WalletAsset struct {
 }
 
 type WalletSession struct {
-	ID       int64          `json:"id"`
-	WalletID int64          `json:"wallet_id"`
-	Name     sql.NullString `json:"name"`
-	Key      string         `json:"key"`
+	ID       int64       `json:"id"`
+	WalletID int64       `json:"wallet_id"`
+	Name     pgtype.Text `json:"name"`
+	Key      string      `json:"key"`
 }
 
 type WalletUser struct {
