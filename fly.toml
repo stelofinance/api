@@ -1,10 +1,13 @@
+# fly.toml app configuration file generated for stelo-api on 2023-05-11T21:26:19-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
 app = "stelo-api"
 kill_signal = "SIGINT"
 kill_timeout = 5
+primary_region = "iad"
 processes = []
-
-[deploy]
-  strategy = "canary"
 
 [build]
   builder = "paketobuildpacks/builder:base"
@@ -20,13 +23,14 @@ processes = []
 [[services]]
   http_checks = []
   internal_port = 8080
+  min_machines_running = 1
   processes = ["app"]
   protocol = "tcp"
   script_checks = []
   [services.concurrency]
+    hard_limit = 50
+    soft_limit = 35
     type = "requests"
-    hard_limit = 100
-    soft_limit = 50
 
   [[services.ports]]
     force_https = true
