@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/stelofinance/api/database"
 	"github.com/stelofinance/api/middlewares"
@@ -27,6 +28,9 @@ func main() {
 	pusher.ConnectClient()
 
 	app := fiber.New()
+
+	// Set CORS
+	app.Use(cors.New())
 
 	// Log request
 	app.Use(logger.New(logger.Config{

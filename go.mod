@@ -6,9 +6,9 @@ require (
 	github.com/dchest/uniuri v1.2.0
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/gofiber/fiber/v2 v2.41.0
-	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/jackc/pgx/v5 v5.3.1
 	github.com/joho/godotenv v1.4.0
+	github.com/pusher/pusher-http-go/v5 v5.1.1
 	golang.org/x/crypto v0.6.0
 )
 
@@ -24,7 +24,6 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
-	github.com/pusher/pusher-http-go/v5 v5.1.1 // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.44.0 // indirect
