@@ -30,7 +30,9 @@ func main() {
 	app := fiber.New()
 
 	// Set CORS
-	app.Use(cors.New())
+	app.Use(cors.New(cors.Config{
+		AllowCredentials: true,
+	}))
 
 	// Log request
 	app.Use(logger.New(logger.Config{
