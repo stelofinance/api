@@ -133,6 +133,7 @@ func postSession(c *fiber.Ctx) error {
 	// Create and set the cookie
 	cookie := fiber.Cookie{
 		Name:     "stelo_token",
+		Expires:  time.Now().Add(time.Hour * 24 * 31),
 		Value:    "stlu_" + key,
 		Secure:   tools.EnvVars.ProductionEnv,
 		HTTPOnly: true,
