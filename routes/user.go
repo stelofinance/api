@@ -254,7 +254,13 @@ func deleteSession(c *fiber.Ctx) error {
 	database.Q.DeleteSession(c.Context(), c.Locals("sid").(int64))
 
 	// Clear the cookie
+	domain := ".stelo.finance"
+	if !tools.EnvVars.ProductionEnv {
+		domain = "localhost"
+	}
+
 	c.Cookie(&fiber.Cookie{
+		Domain:   domain,
 		Name:     "stelo_token",
 		Value:    "",
 		Secure:   tools.EnvVars.ProductionEnv,
@@ -282,7 +288,12 @@ func deleteSessionById(c *fiber.Ctx) error {
 
 	if int64(id) == c.Locals("sid").(int64) {
 		// Clear the cookie
+		domain := ".stelo.finance"
+		if !tools.EnvVars.ProductionEnv {
+			domain = "localhost"
+		}
 		c.Cookie(&fiber.Cookie{
+			Domain:   domain,
 			Name:     "stelo_token",
 			Value:    "",
 			Secure:   tools.EnvVars.ProductionEnv,
@@ -300,7 +311,12 @@ func deleteSessions(c *fiber.Ctx) error {
 	database.Q.DeleteSessionsByUserId(c.Context(), c.Locals("uid").(int64))
 
 	// Clear their session cookie
+	domain := ".stelo.finance"
+	if !tools.EnvVars.ProductionEnv {
+		domain = "localhost"
+	}
 	c.Cookie(&fiber.Cookie{
+		Domain:   domain,
 		Name:     "stelo_token",
 		Value:    "",
 		Secure:   tools.EnvVars.ProductionEnv,

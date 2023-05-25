@@ -131,9 +131,15 @@ func postSession(c *fiber.Ctx) error {
 	}
 
 	// Create and set the cookie
+	domain := ".stelo.finance"
+	if !tools.EnvVars.ProductionEnv {
+		domain = "localhost"
+	}
+
 	cookie := fiber.Cookie{
+		Domain:   domain,
 		Name:     "stelo_token",
-		Expires:  time.Now().Add(time.Hour * 24 * 31),
+		Expires:  time.Now().Add(time.Hour * 24 * 365),
 		Value:    "stlu_" + key,
 		Secure:   tools.EnvVars.ProductionEnv,
 		HTTPOnly: true,
