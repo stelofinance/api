@@ -27,7 +27,15 @@ func main() {
 	// Setup Pusher client
 	pusher.ConnectClient()
 
-	app := fiber.New()
+	// Use IPv6 in dev, IPv4 in prod
+	fiberConfig := fiber.Config{
+		Network: fiber.NetworkTCP4,
+	}
+	if !tools.EnvVars.ProductionEnv {
+		fiberConfig.Network = fiber.NetworkTCP6
+	}
+
+	app := fiber.New(fiberConfig)
 
 	// Set CORS
 	app.Use(cors.New(cors.Config{
