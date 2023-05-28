@@ -90,6 +90,35 @@ func (q *Queries) GetUserIdByUsername(ctx context.Context, username string) (int
 	return id, err
 }
 
+const getUserSessionInfo = `-- name: GetUserSessionInfo :one
+SELECT
+    "user".username,
+    wallet.address AS wallet_address
+FROM
+    "user",
+    wallet
+WHERE
+    "user".id = $1::bigint
+    AND wallet.id = $2::bigint
+`
+
+type GetUserSessionInfoParams struct {
+	UserID   int64 `json:"user_id"`
+	WalletID int64 `json:"wallet_id"`
+}
+
+type GetUserSessionInfoRow struct {
+	Username      string `json:"username"`
+	WalletAddress string `json:"wallet_address"`
+}
+
+func (q *Queries) GetUserSessionInfo(ctx context.Context, arg GetUserSessionInfoParams) (GetUserSessionInfoRow, error) {
+	row := q.db.QueryRow(ctx, getUserSessionInfo, arg.UserID, arg.WalletID)
+	var i GetUserSessionInfoRow
+	err := row.Scan(&i.Username, &i.WalletAddress)
+	return i, err
+}
+
 const getWalletByUsername = `-- name: GetWalletByUsername :one
 SELECT wallet_id FROM "user" WHERE username = $1
 `

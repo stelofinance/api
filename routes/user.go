@@ -249,6 +249,25 @@ func getSessions(c *fiber.Ctx) error {
 	return c.Status(200).JSON(userSessions)
 }
 
+func getSession(c *fiber.Ctx) error {
+	result, err := database.Q.GetUserSessionInfo(c.Context(), db.GetUserSessionInfoParams{
+		UserID:   c.Locals("uid").(int64),
+		WalletID: c.Locals("wid").(int64),
+	})
+
+	if err != nil {
+		log.Printf("Error getting session info: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	return c.Status(200).JSON(fiber.Map{
+		"user_id":        c.Locals("uid").(int64),
+		"username":       result.Username,
+		"wallet_id":      c.Locals("wid").(int64),
+		"wallet_address": result.WalletAddress,
+	})
+}
+
 func deleteSession(c *fiber.Ctx) error {
 	// Clear session from DB
 	database.Q.DeleteSession(c.Context(), c.Locals("sid").(int64))

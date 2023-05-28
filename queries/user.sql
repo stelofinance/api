@@ -19,6 +19,17 @@ UPDATE "user" SET password = $1 WHERE id = $2;
 -- name: GetWalletByUsername :one
 SELECT wallet_id FROM "user" WHERE username = $1;
 
+-- name: GetUserSessionInfo :one
+SELECT
+    "user".username,
+    wallet.address AS wallet_address
+FROM
+    "user",
+    wallet
+WHERE
+    "user".id = sqlc.arg(user_id)::bigint
+    AND wallet.id = sqlc.arg(wallet_id)::bigint;
+
 -- name: GetUserIdByUsername :one
 SELECT id FROM "user" WHERE username = $1;
 

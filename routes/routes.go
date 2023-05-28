@@ -25,6 +25,7 @@ func UserRouter(app fiber.Router) {
 	app.Post("/wallets", postWallet)
 	app.Get("/assigned_wallets", getAssignedWallets)
 	app.Put("/session/wallet", putActiveWallet)
+	app.Get("/session", getSession)
 	app.Delete("/session", deleteSession)
 	app.Delete("/sessions/:sessionid", deleteSessionById)
 	app.Get("/sessions", getSessions)
