@@ -290,7 +290,7 @@ func getTransactions(c *fiber.Ctx) error {
 	}
 
 	// Retrieve their transactions, edger load the assets
-	transactions, err := database.Q.GetTransactions(c.Context(), db.GetTransactionsParams{
+	transactions, err := database.Q.GetTransactionsDetailed(c.Context(), db.GetTransactionsDetailedParams{
 		SendingWalletID: c.Locals("wid").(int64),
 		Limit:           query.Limit,
 		Offset:          query.Offset,
@@ -334,15 +334,19 @@ func getTransactions(c *fiber.Ctx) error {
 	}
 
 	type transactionAPI struct {
-		ID                int64                 `json:"id"`
-		SendingWalletID   int64                 `json:"sending_wallet_id"`
-		ReceivingWalletID int64                 `json:"receiving_wallet_id"`
-		CreatedAt         time.Time             `json:"created_at"`
-		Memo              string                `json:"memo"`
-		Assets            []transactionAssetAPI `json:"assets"`
+		ID                     int64                 `json:"id"`
+		SendingWalletID        int64                 `json:"sending_wallet_id"`
+		ReceivingWalletID      int64                 `json:"receiving_wallet_id"`
+		SendingWalletAddress   string                `json:"sending_wallet_address"`
+		ReceivingWalletAddress string                `json:"receiving_wallet_address"`
+		SendingUsername        string                `json:"sending_username"`
+		ReceivingUsername      string                `json:"receiving_username"`
+		CreatedAt              time.Time             `json:"created_at"`
+		Memo                   string                `json:"memo"`
+		Assets                 []transactionAssetAPI `json:"assets"`
 	}
 
-	var transactionsAPI []transactionAPI
+	var transactionsAPI []map[string]interface{}
 	for _, transaction := range transactions {
 		var assets []transactionAssetAPI
 
@@ -356,18 +360,29 @@ func getTransactions(c *fiber.Ctx) error {
 			}
 		}
 
-		transactionsAPI = append(transactionsAPI, transactionAPI{
-			ID:                transaction.ID,
-			SendingWalletID:   transaction.SendingWalletID,
-			ReceivingWalletID: transaction.ReceivingWalletID,
-			CreatedAt:         transaction.CreatedAt,
-			Memo:              transaction.Memo.String,
-			Assets:            assets,
-		})
+		tempTxMap := map[string]interface{}{
+			"id":                       transaction.ID,
+			"sending_wallet_id":        transaction.SendingWalletID,
+			"receiving_wallet_id":      transaction.ReceivingWalletID,
+			"sending_wallet_address":   transaction.SendingAddress,
+			"receiving_wallet_address": transaction.ReceivingAddress,
+			"created_at":               transaction.CreatedAt,
+			"memo":                     transaction.Memo.String,
+			"assets":                   assets,
+		}
+
+		if transaction.SendingUsername.Valid {
+			tempTxMap["sending_username"] = transaction.SendingUsername.String
+		}
+		if transaction.ReceivingUsername.Valid {
+			tempTxMap["receiving_username"] = transaction.ReceivingUsername.String
+		}
+
+		transactionsAPI = append(transactionsAPI, tempTxMap)
 	}
 
 	if transactionsAPI == nil {
-		transactionsAPI = []transactionAPI{}
+		transactionsAPI = []map[string]interface{}{}
 	}
 
 	return c.Status(200).JSON(transactionsAPI)

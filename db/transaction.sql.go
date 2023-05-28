@@ -115,3 +115,83 @@ func (q *Queries) GetTransactions(ctx context.Context, arg GetTransactionsParams
 	}
 	return items, nil
 }
+
+const getTransactionsDetailed = `-- name: GetTransactionsDetailed :many
+SELECT
+	tx.id,
+    tx.sending_wallet_id,
+    tx.receiving_wallet_id,
+    sending_wallet.address AS sending_address,
+    receiving_wallet.address AS receiving_address,
+    sending_user.username AS sending_username,
+    receiving_user.username AS receiving_username,
+    tx.memo,
+    tx.created_at
+FROM
+    transaction AS tx
+JOIN 
+    wallet AS sending_wallet ON tx.sending_wallet_id = sending_wallet.id
+JOIN 
+    wallet AS receiving_wallet ON tx.receiving_wallet_id = receiving_wallet.id
+LEFT JOIN
+    "user" AS sending_user ON tx.sending_wallet_id = sending_user.wallet_id
+LEFT JOIN
+    "user" AS receiving_user ON tx.receiving_wallet_id = receiving_user.wallet_id
+WHERE
+    tx.sending_wallet_id = $1
+    OR tx.receiving_wallet_id = $1
+ORDER BY
+    tx.created_at DESC
+LIMIT
+    $2
+OFFSET
+    $3
+`
+
+type GetTransactionsDetailedParams struct {
+	SendingWalletID int64 `json:"sending_wallet_id"`
+	Limit           int32 `json:"limit"`
+	Offset          int32 `json:"offset"`
+}
+
+type GetTransactionsDetailedRow struct {
+	ID                int64       `json:"id"`
+	SendingWalletID   int64       `json:"sending_wallet_id"`
+	ReceivingWalletID int64       `json:"receiving_wallet_id"`
+	SendingAddress    string      `json:"sending_address"`
+	ReceivingAddress  string      `json:"receiving_address"`
+	SendingUsername   pgtype.Text `json:"sending_username"`
+	ReceivingUsername pgtype.Text `json:"receiving_username"`
+	Memo              pgtype.Text `json:"memo"`
+	CreatedAt         time.Time   `json:"created_at"`
+}
+
+func (q *Queries) GetTransactionsDetailed(ctx context.Context, arg GetTransactionsDetailedParams) ([]GetTransactionsDetailedRow, error) {
+	rows, err := q.db.Query(ctx, getTransactionsDetailed, arg.SendingWalletID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetTransactionsDetailedRow
+	for rows.Next() {
+		var i GetTransactionsDetailedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SendingWalletID,
+			&i.ReceivingWalletID,
+			&i.SendingAddress,
+			&i.ReceivingAddress,
+			&i.SendingUsername,
+			&i.ReceivingUsername,
+			&i.Memo,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
