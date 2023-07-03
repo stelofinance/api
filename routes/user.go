@@ -261,10 +261,11 @@ func getSession(c *fiber.Ctx) error {
 	}
 
 	return c.Status(200).JSON(fiber.Map{
-		"user_id":        c.Locals("uid").(int64),
-		"username":       result.Username,
-		"wallet_id":      c.Locals("wid").(int64),
-		"wallet_address": result.WalletAddress,
+		"user_id":           c.Locals("uid").(int64),
+		"username":          result.Username,
+		"primary_wallet_id": result.PrimaryWalletID.Int64,
+		"wallet_id":         c.Locals("wid").(int64),
+		"wallet_address":    result.WalletAddress,
 	})
 }
 

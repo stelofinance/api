@@ -22,6 +22,7 @@ SELECT wallet_id FROM "user" WHERE username = $1;
 -- name: GetUserSessionInfo :one
 SELECT
     "user".username,
+    "user".wallet_id AS primary_wallet_id,
     wallet.address AS wallet_address
 FROM
     "user",

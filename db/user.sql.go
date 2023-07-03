@@ -93,6 +93,7 @@ func (q *Queries) GetUserIdByUsername(ctx context.Context, username string) (int
 const getUserSessionInfo = `-- name: GetUserSessionInfo :one
 SELECT
     "user".username,
+    "user".wallet_id AS primary_wallet_id,
     wallet.address AS wallet_address
 FROM
     "user",
@@ -108,14 +109,15 @@ type GetUserSessionInfoParams struct {
 }
 
 type GetUserSessionInfoRow struct {
-	Username      string `json:"username"`
-	WalletAddress string `json:"wallet_address"`
+	Username        string      `json:"username"`
+	PrimaryWalletID pgtype.Int8 `json:"primary_wallet_id"`
+	WalletAddress   string      `json:"wallet_address"`
 }
 
 func (q *Queries) GetUserSessionInfo(ctx context.Context, arg GetUserSessionInfoParams) (GetUserSessionInfoRow, error) {
 	row := q.db.QueryRow(ctx, getUserSessionInfo, arg.UserID, arg.WalletID)
 	var i GetUserSessionInfoRow
-	err := row.Scan(&i.Username, &i.WalletAddress)
+	err := row.Scan(&i.Username, &i.PrimaryWalletID, &i.WalletAddress)
 	return i, err
 }
 
