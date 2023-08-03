@@ -42,10 +42,3 @@ LIMIT
     $2
 OFFSET
     $3;
-
--- name: DeleteTransactionById :execrows
-DELETE FROM transaction WHERE (sending_wallet_id = $1 OR receiving_wallet_id = $2) AND id = $3;
-
--- name: DeleteTransactionsById :execrows
-DELETE FROM transaction 
-    WHERE (sending_wallet_id = $1 OR receiving_wallet_id = $2) AND id = ANY($3::BIGINT[]);

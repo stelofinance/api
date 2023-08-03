@@ -17,7 +17,7 @@ const (
 	// ErrorW001 = "W001: Asset Not Found"
 	ErrorW002 = "W002: Wallet or Asset Not Found"
 	ErrorW003 = "W003: User Already Assigned To Wallet"
-	ErrorW004 = "W004: Transaction(s) Not Found"
+	// ErrorW004 = "W004: Transaction(s) Not Found"
 	ErrorW005 = "W005: Session Not Found"
 	ErrorW006 = "W006: Wallet Not Owned"
 	ErrorW007 = "W007: User Not Assigned"

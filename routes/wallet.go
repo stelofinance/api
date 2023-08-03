@@ -388,61 +388,6 @@ func getTransactions(c *fiber.Ctx) error {
 	return c.Status(200).JSON(transactionsAPI)
 }
 
-func deleteTransaction(c *fiber.Ctx) error {
-	// Get walletid param
-	params := struct {
-		TransactionID int64 `params:"transactionid"`
-	}{}
-	if c.ParamsParser(&params) != nil {
-		return c.Status(400).SendString(constants.ErrorG001)
-	}
-
-	rows, err := database.Q.DeleteTransactionById(c.Context(), db.DeleteTransactionByIdParams{
-		SendingWalletID:   c.Locals("wid").(int64),
-		ReceivingWalletID: c.Locals("wid").(int64),
-		ID:                params.TransactionID,
-	})
-	if err != nil {
-		log.Printf("Error deleting transaction: {%v}", err.Error())
-		return c.Status(500).SendString(constants.ErrorS000)
-	}
-	if rows == 0 {
-		return c.Status(404).SendString(constants.ErrorW004)
-	}
-
-	return c.Status(200).SendString("Transaction deleted")
-}
-
-func deleteTransactions(c *fiber.Ctx) error {
-	// Get walletid param
-	body := struct {
-		TransactionIDs []int64 `json:"transaction_ids" validate:"required"`
-	}{}
-	if c.BodyParser(&body) != nil {
-		return c.Status(400).SendString(constants.ErrorG000)
-	}
-	if validate.Struct(body) != nil {
-		return c.Status(400).SendString(constants.ErrorG000)
-	}
-
-	rows, err := database.Q.DeleteTransactionsById(c.Context(), db.DeleteTransactionsByIdParams{
-		SendingWalletID:   c.Locals("wid").(int64),
-		ReceivingWalletID: c.Locals("wid").(int64),
-		Column3:           body.TransactionIDs,
-	})
-
-	if err != nil {
-		log.Printf("Error deleteing transactions: {%v}", err.Error())
-		return c.Status(500).SendString(constants.ErrorS000)
-	}
-
-	if rows == 0 {
-		return c.Status(404).SendString(constants.ErrorW004)
-	}
-
-	return c.Status(200).SendString("Transactions deleted")
-}
-
 func postUserToWallet(c *fiber.Ctx) error {
 	body := struct {
 		Username string `json:"username" validate:"required,min=2,max=32,alphanum"`
