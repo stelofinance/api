@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stelofinance/api/constants"
 	"github.com/stelofinance/api/database"
@@ -175,6 +177,9 @@ func postWallet(c *fiber.Ctx) error {
 		Address: body.Address,
 	})
 	if err != nil {
+		if err, ok := err.(*pgconn.PgError); ok && err.Code == pgerrcode.UniqueViolation {
+			return c.Status(400).SendString(constants.ErrorW011)
+		}
 		log.Printf("Error creating wallet: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}

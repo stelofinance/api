@@ -411,7 +411,7 @@ func postUserToWallet(c *fiber.Ctx) error {
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	if count == 0 {
-		return c.Status(400).SendString(constants.ErrorW006)
+		return c.Status(403).SendString(constants.ErrorW006)
 	}
 
 	// Get the username's user id
@@ -453,7 +453,7 @@ func deleteUserFromWallet(c *fiber.Ctx) error {
 		UserID: c.Locals("uid").(int64),
 	})
 	if count == 0 {
-		return c.Status(400).SendString(constants.ErrorW006)
+		return c.Status(403).SendString(constants.ErrorW006)
 	}
 
 	// Revoke the user's access to the wallet
@@ -649,7 +649,7 @@ func deleteWallet(c *fiber.Ctx) error {
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	if count == 0 {
-		return c.Status(400).SendString(constants.ErrorW006)
+		return c.Status(403).SendString(constants.ErrorW006)
 	}
 
 	// Check if wallet is primary
@@ -775,6 +775,15 @@ func putWalletWebhook(c *fiber.Ctx) error {
 		return c.Status(400).SendString(constants.ErrorG000)
 	}
 
+	// Check if requester owns the wallet
+	count, err := database.Q.CountWalletsByIdAndUserId(c.Context(), db.CountWalletsByIdAndUserIdParams{
+		ID:     c.Locals("wid").(int64),
+		UserID: c.Locals("uid").(int64),
+	})
+	if count == 0 {
+		return c.Status(403).SendString(constants.ErrorW006)
+	}
+
 	// Check if wallet is primary
 	user, err := database.Q.GetUserById(c.Context(), c.Locals("uid").(int64))
 	if err != nil {
@@ -806,7 +815,16 @@ func putWalletWebhook(c *fiber.Ctx) error {
 }
 
 func deleteWalletWebhook(c *fiber.Ctx) error {
-	err := database.Q.DeleteWalletWebhook(c.Context(), c.Locals("wid").(int64))
+	// Check if requester owns the wallet
+	count, err := database.Q.CountWalletsByIdAndUserId(c.Context(), db.CountWalletsByIdAndUserIdParams{
+		ID:     c.Locals("wid").(int64),
+		UserID: c.Locals("uid").(int64),
+	})
+	if count == 0 {
+		return c.Status(403).SendString(constants.ErrorW006)
+	}
+
+	err = database.Q.DeleteWalletWebhook(c.Context(), c.Locals("wid").(int64))
 	if err != nil {
 		log.Printf("Error deleting wallet webhook: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)

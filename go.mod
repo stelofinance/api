@@ -6,6 +6,7 @@ require (
 	github.com/dchest/uniuri v1.2.0
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/gofiber/fiber/v2 v2.41.0
+	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa
 	github.com/jackc/pgx/v5 v5.3.1
 	github.com/joho/godotenv v1.4.0
 	github.com/pusher/pusher-http-go/v5 v5.1.1
