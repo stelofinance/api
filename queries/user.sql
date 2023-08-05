@@ -32,6 +32,14 @@ WHERE
     "user".id = sqlc.arg(user_id)::bigint
     AND wallet.id = sqlc.arg(wallet_id)::bigint;
 
+-- name: GetUserWalletId :one
+SELECT
+    wallet_id
+FROM
+    "user"
+WHERE
+    id = sqlc.arg(user_id)::bigint;
+
 -- name: GetUserIdByUsername :one
 SELECT id FROM "user" WHERE username = $1;
 

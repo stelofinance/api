@@ -128,6 +128,22 @@ func (q *Queries) GetUserSessionInfo(ctx context.Context, arg GetUserSessionInfo
 	return i, err
 }
 
+const getUserWalletId = `-- name: GetUserWalletId :one
+SELECT
+    wallet_id
+FROM
+    "user"
+WHERE
+    id = $1::bigint
+`
+
+func (q *Queries) GetUserWalletId(ctx context.Context, userID int64) (pgtype.Int8, error) {
+	row := q.db.QueryRow(ctx, getUserWalletId, userID)
+	var wallet_id pgtype.Int8
+	err := row.Scan(&wallet_id)
+	return wallet_id, err
+}
+
 const getWalletByUsername = `-- name: GetWalletByUsername :one
 SELECT wallet_id FROM "user" WHERE username = $1
 `

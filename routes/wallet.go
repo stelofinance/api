@@ -514,6 +514,16 @@ func putWalletOwner(c *fiber.Ctx) error {
 	}
 	qtx := database.Q.WithTx(tx)
 
+	// Make sure it's not their primary wallet
+	row, err := qtx.GetUserWalletId(c.Context(), c.Locals("uid").(int64))
+	if err != nil {
+		log.Printf("Error fetching user's primary wallet id: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	if row.Int64 == c.Locals("wid").(int64) {
+		return c.Status(400).SendString(constants.ErrorW012)
+	}
+
 	rows, err := qtx.UpdateWalletUserUserID(c.Context(), db.UpdateWalletUserUserIDParams{
 		UserID:   c.Locals("uid").(int64),
 		WalletID: c.Locals("wid").(int64),

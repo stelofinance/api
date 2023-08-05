@@ -25,6 +25,7 @@ const (
 	// ErrorW009 = "W009: Can't Add Webhook To Primary Wallet"
 	ErrorW010 = "W010: Webhook Errored"
 	ErrorW011 = "W011: Address Taken"
+	ErrorW012 = "W012: Can't Transfer Primary Wallet"
 
 	ErrorA000 = "A000: Session Required"
 	ErrorA001 = "A001: Invalid Session"
