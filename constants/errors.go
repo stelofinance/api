@@ -22,7 +22,7 @@ const (
 	ErrorW006 = "W006: Wallet Not Owned"
 	ErrorW007 = "W007: User Not Assigned"
 	ErrorW008 = "W008: Can't Delete Primary Wallet"
-	ErrorW009 = "W009: Can't Add Webhook To Primary Wallet"
+	// ErrorW009 = "W009: Can't Add Webhook To Primary Wallet"
 	ErrorW010 = "W010: Webhook Errored"
 	ErrorW011 = "W011: Address Taken"
 

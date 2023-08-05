@@ -794,9 +794,6 @@ func putWalletWebhook(c *fiber.Ctx) error {
 		log.Printf("Error, user created without wallet: {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
-	if user.WalletID.Int64 == c.Locals("wid").(int64) {
-		return c.Status(400).SendString(constants.ErrorW009)
-	}
 
 	// Update webhook
 	err = database.Q.UpdateWalletWebhook(c.Context(), db.UpdateWalletWebhookParams{
