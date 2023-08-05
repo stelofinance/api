@@ -7,6 +7,9 @@ SELECT id, user_id, wallet_id FROM user_session WHERE key = $1;
 -- name: UpdateUserSessionWallet :exec
 UPDATE user_session SET wallet_id = $1 WHERE id = $2;
 
+-- name: UpdateUserSessionWalletByWalletId :exec
+UPDATE user_session SET wallet_id = @new_wallet_id::bigint WHERE wallet_id = @old_wallet_id::bigint;
+
 -- name: GetUserSessions :many
 SELECT id, user_id, wallet_id FROM user_session WHERE user_id = $1;
 

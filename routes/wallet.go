@@ -752,13 +752,12 @@ func deleteWallet(c *fiber.Ctx) error {
 	// TODO: Add in websocket support
 
 	// Update their session
-	// UNSAFE: Type assertion could panic
-	err = qtx.UpdateUserSessionWallet(c.Context(), db.UpdateUserSessionWalletParams{
-		ID:       c.Locals("sid").(int64),
-		WalletID: user.WalletID.Int64,
+	err = qtx.UpdateUserSessionWalletByWalletId(c.Context(), db.UpdateUserSessionWalletByWalletIdParams{
+		OldWalletID: c.Locals("wid").(int64),
+		NewWalletID: user.WalletID.Int64,
 	})
 	if err != nil {
-		log.Printf("Error updating user session: {%v}", err.Error())
+		log.Printf("Error updating user session(s): {%v}", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 

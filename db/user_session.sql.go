@@ -119,3 +119,17 @@ func (q *Queries) UpdateUserSessionWallet(ctx context.Context, arg UpdateUserSes
 	_, err := q.db.Exec(ctx, updateUserSessionWallet, arg.WalletID, arg.ID)
 	return err
 }
+
+const updateUserSessionWalletByWalletId = `-- name: UpdateUserSessionWalletByWalletId :exec
+UPDATE user_session SET wallet_id = $1::bigint WHERE wallet_id = $2::bigint
+`
+
+type UpdateUserSessionWalletByWalletIdParams struct {
+	NewWalletID int64 `json:"new_wallet_id"`
+	OldWalletID int64 `json:"old_wallet_id"`
+}
+
+func (q *Queries) UpdateUserSessionWalletByWalletId(ctx context.Context, arg UpdateUserSessionWalletByWalletIdParams) error {
+	_, err := q.db.Exec(ctx, updateUserSessionWalletByWalletId, arg.NewWalletID, arg.OldWalletID)
+	return err
+}
