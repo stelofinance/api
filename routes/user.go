@@ -270,6 +270,7 @@ func getSession(c *fiber.Ctx) error {
 		"username":          result.Username,
 		"primary_wallet_id": result.PrimaryWalletID.Int64,
 		"wallet_id":         c.Locals("wid").(int64),
+		"wallet_user_id":    result.WalletUserID,
 		"wallet_address":    result.WalletAddress,
 	})
 }
