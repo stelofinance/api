@@ -179,7 +179,7 @@ func postTransaction(c *fiber.Ctx) error {
 			log.Printf("Error posting to webhook: {%v}", err.Error())
 			return c.Status(500).SendString(constants.ErrorS000)
 		}
-		if resp.StatusCode != 200 {
+		if resp.StatusCode != 200 && resp.StatusCode != 201 && resp.StatusCode != 202 {
 			return c.Status(400).SendString(constants.ErrorW010)
 		}
 		resp.Body.Close()
