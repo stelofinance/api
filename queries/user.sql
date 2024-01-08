@@ -49,3 +49,6 @@ FROM "user"
 INNER JOIN wallet_user 
     ON "user".id = wallet_user.user_id 
         AND wallet_user.wallet_id = $1;
+
+-- name: UpdateCanCreateWarehouses :exec
+UPDATE "user" SET can_create_warehouses = $1 WHERE username = $2;

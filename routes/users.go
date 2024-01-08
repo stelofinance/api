@@ -149,3 +149,22 @@ func postSession(c *fiber.Ctx) error {
 
 	return c.Status(201).SendString("Session created")
 }
+
+func putCanCreateWarehouses(c *fiber.Ctx) error {
+	var body bool
+
+	// Parse and validate body
+	if c.BodyParser(&body) != nil {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+
+	err := database.Q.UpdateCanCreateWarehouses(
+		c.Context(),
+		db.UpdateCanCreateWarehousesParams{CanCreateWarehouses: body, Username: c.Params("username")},
+	)
+	if err != nil {
+		return c.Status(404).SendString(constants.ErrorU003)
+	}
+
+	return c.Status(200).SendString("Permission updated")
+}

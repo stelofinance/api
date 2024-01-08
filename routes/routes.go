@@ -11,6 +11,7 @@ var validate = validator.New()
 func UsersRouter(app fiber.Router) {
 	app.Post("/", auth.New(auth.Guest), postUser)
 	app.Post("/:username/sessions", auth.New(auth.Guest), postSession)
+	app.Put("/:username/can_create_warehouses", auth.New(auth.Admin), putCanCreateWarehouses)
 }
 
 func PusherRouter(app fiber.Router) {
