@@ -54,6 +54,7 @@ func main() {
 	routes.WalletRouter(app.Group("/wallet"))
 	routes.WalletsRouter(app.Group("/wallets", auth.New(auth.Admin)))
 	routes.AssetsRouter(app.Group("/assets", auth.New(auth.Admin)))
+	routes.WarehousesRouter(app.Group("/warehouses", auth.New(auth.User)))
 
 	// Run app
 	log.Fatal(app.Listen(":8080"))

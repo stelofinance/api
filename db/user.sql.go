@@ -81,6 +81,17 @@ func (q *Queries) GetUserById(ctx context.Context, id int64) (User, error) {
 	return i, err
 }
 
+const getUserCanCreateWarehouses = `-- name: GetUserCanCreateWarehouses :one
+SELECT can_create_warehouses FROM "user" WHERE id = $1
+`
+
+func (q *Queries) GetUserCanCreateWarehouses(ctx context.Context, id int64) (bool, error) {
+	row := q.db.QueryRow(ctx, getUserCanCreateWarehouses, id)
+	var can_create_warehouses bool
+	err := row.Scan(&can_create_warehouses)
+	return can_create_warehouses, err
+}
+
 const getUserIdByUsername = `-- name: GetUserIdByUsername :one
 SELECT id FROM "user" WHERE username = $1
 `

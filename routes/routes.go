@@ -61,3 +61,7 @@ func AssetsRouter(app fiber.Router) {
 	app.Put("/:id/name", putAssetName)
 	app.Delete("/:id", deleteAsset)
 }
+
+func WarehousesRouter(app fiber.Router) {
+	app.Post("/", postWarehouse)
+}

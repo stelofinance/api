@@ -37,4 +37,6 @@ const (
 
 	ErrorP000 = "P000: Invalid Auth Form"
 	ErrorP001 = "P001: Invalid Channel"
+
+	ErrorH000 = "H000: Can't Create Warehouses"
 )

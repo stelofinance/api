@@ -73,3 +73,13 @@ type WalletUser struct {
 	WalletID int64 `json:"wallet_id"`
 	UserID   int64 `json:"user_id"`
 }
+
+type Warehouse struct {
+	ID              int64          `json:"id"`
+	Name            string         `json:"name"`
+	UserID          int64          `json:"user_id"`
+	Location        interface{}    `json:"location"`
+	Liability       int64          `json:"liability"`
+	Collateral      int64          `json:"collateral"`
+	CollateralRatio pgtype.Numeric `json:"collateral_ratio"`
+}

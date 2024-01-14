@@ -52,3 +52,6 @@ INNER JOIN wallet_user
 
 -- name: UpdateCanCreateWarehouses :exec
 UPDATE "user" SET can_create_warehouses = $1 WHERE username = $2;
+
+-- name: GetUserCanCreateWarehouses :one
+SELECT can_create_warehouses FROM "user" WHERE id = $1;
