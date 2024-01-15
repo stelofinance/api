@@ -9,6 +9,21 @@ import (
 	"context"
 )
 
+const createTransactionAsset = `-- name: CreateTransactionAsset :exec
+INSERT INTO transaction_asset (transaction_id, asset_id, quantity) VALUES ($1, $2, $3)
+`
+
+type CreateTransactionAssetParams struct {
+	TransactionID int64 `json:"transaction_id"`
+	AssetID       int64 `json:"asset_id"`
+	Quantity      int64 `json:"quantity"`
+}
+
+func (q *Queries) CreateTransactionAsset(ctx context.Context, arg CreateTransactionAssetParams) error {
+	_, err := q.db.Exec(ctx, createTransactionAsset, arg.TransactionID, arg.AssetID, arg.Quantity)
+	return err
+}
+
 const getTransactionAssetsByTransactionIds = `-- name: GetTransactionAssetsByTransactionIds :many
 SELECT id, transaction_id, asset_id, quantity FROM transaction_asset WHERE transaction_id = ANY($1::BIGINT[])
 `

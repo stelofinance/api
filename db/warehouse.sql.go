@@ -9,6 +9,34 @@ import (
 	"context"
 )
 
+const addWarehouseCollateralQuantity = `-- name: AddWarehouseCollateralQuantity :execrows
+UPDATE warehouse SET collateral = collateral + $1 WHERE id = $2
+`
+
+type AddWarehouseCollateralQuantityParams struct {
+	Collateral int64 `json:"collateral"`
+	ID         int64 `json:"id"`
+}
+
+func (q *Queries) AddWarehouseCollateralQuantity(ctx context.Context, arg AddWarehouseCollateralQuantityParams) (int64, error) {
+	result, err := q.db.Exec(ctx, addWarehouseCollateralQuantity, arg.Collateral, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const getWarehouseUserId = `-- name: GetWarehouseUserId :one
+SELECT user_id FROM warehouse WHERE id = $1
+`
+
+func (q *Queries) GetWarehouseUserId(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRow(ctx, getWarehouseUserId, id)
+	var user_id int64
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
 const insertWarehouse = `-- name: InsertWarehouse :exec
 INSERT INTO warehouse (name, user_id, location) VALUES ($1, $2, $3)
 `
@@ -22,4 +50,21 @@ type InsertWarehouseParams struct {
 func (q *Queries) InsertWarehouse(ctx context.Context, arg InsertWarehouseParams) error {
 	_, err := q.db.Exec(ctx, insertWarehouse, arg.Name, arg.UserID, arg.Location)
 	return err
+}
+
+const subtractWarehouseCollateralQuantity = `-- name: SubtractWarehouseCollateralQuantity :execrows
+UPDATE warehouse SET collateral = collateral - $1 WHERE id = $2 AND collateral >= $1
+`
+
+type SubtractWarehouseCollateralQuantityParams struct {
+	Collateral int64 `json:"collateral"`
+	ID         int64 `json:"id"`
+}
+
+func (q *Queries) SubtractWarehouseCollateralQuantity(ctx context.Context, arg SubtractWarehouseCollateralQuantityParams) (int64, error) {
+	result, err := q.db.Exec(ctx, subtractWarehouseCollateralQuantity, arg.Collateral, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

@@ -64,4 +64,5 @@ func AssetsRouter(app fiber.Router) {
 
 func WarehousesRouter(app fiber.Router) {
 	app.Post("/", postWarehouse)
+	app.Put("/:warehouseid/collateral", putCollateral)
 }

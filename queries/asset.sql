@@ -13,5 +13,8 @@ DELETE FROM asset WHERE id = $1;
 -- name: GetAssetsByIds :many
 SELECT * FROM asset WHERE id = ANY($1::BIGINT[]);
 
+-- name: GetAssetIdByName :one
+SELECT id FROM asset WHERE name = $1 LIMIT 1;
+
 -- name: GetAssetsIdNameByNames :many
 SELECT id, name FROM asset WHERE name = ANY($1::varchar[]);

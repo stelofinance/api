@@ -35,6 +35,17 @@ func (q *Queries) DeleteAsset(ctx context.Context, id int64) (int64, error) {
 	return result.RowsAffected(), nil
 }
 
+const getAssetIdByName = `-- name: GetAssetIdByName :one
+SELECT id FROM asset WHERE name = $1 LIMIT 1
+`
+
+func (q *Queries) GetAssetIdByName(ctx context.Context, name string) (int64, error) {
+	row := q.db.QueryRow(ctx, getAssetIdByName, name)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getAssetsByIds = `-- name: GetAssetsByIds :many
 SELECT id, name, value FROM asset WHERE id = ANY($1::BIGINT[])
 `

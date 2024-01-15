@@ -39,4 +39,7 @@ const (
 	ErrorP001 = "P001: Invalid Channel"
 
 	ErrorH000 = "H000: Can't Create Warehouses"
+	ErrorH001 = "H001: Warehouse Not Found"
+	ErrorH002 = "H002: Not Warehouse Owner"
+	ErrorH003 = "H003: Not Enough Collateral"
 )
