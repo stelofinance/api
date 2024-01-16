@@ -76,12 +76,12 @@ func putCollateral(c *fiber.Ctx) error {
 	}
 	qtx := database.Q.WithTx(tx)
 
-	// Make sure requeser is owner of warehouse
+	// Make sure requester is owner of warehouse
 	warehouseId, err := strconv.Atoi(c.Params("warehouseid"))
 	if err != nil {
 		return c.Status(400).SendString(constants.ErrorG001)
 	}
-	userId, err := qtx.GetWarehouseUserId(c.Context(), int64(warehouseId))
+	userId, err := qtx.GetWarehouseUserIdLock(c.Context(), int64(warehouseId))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return c.Status(404).SendString(constants.ErrorH001)
@@ -222,4 +222,57 @@ func putCollateral(c *fiber.Ctx) error {
 	tx.Commit(c.Context())
 
 	return c.Status(200).SendString("Collateral adjusted")
+}
+
+func putWarehouseOwner(c *fiber.Ctx) error {
+	var body struct {
+		Username string `json:"username" validate:"required"`
+	}
+
+	// Parse and validate body
+	if c.BodyParser(&body) != nil {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+	if validate.Struct(body) != nil {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+
+	tx, err := database.DB.Begin(c.Context())
+	defer tx.Rollback(c.Context())
+	if err != nil {
+		log.Printf("Error creating db transaction: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	qtx := database.Q.WithTx(tx)
+
+	// Make sure requester is owner of warehouse
+	warehouseId, err := strconv.ParseInt(c.Params("warehouseid"), 10, 64)
+	if err != nil {
+		return c.Status(400).SendString(constants.ErrorG001)
+	}
+	userId, err := qtx.GetWarehouseUserIdLock(c.Context(), int64(warehouseId))
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return c.Status(404).SendString(constants.ErrorH001)
+		}
+		log.Println("Failed to fetch user id from warehouse", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	if userId != c.Locals("uid").(int64) {
+		return c.Status(403).SendString(constants.ErrorH002)
+	}
+
+	// Update user who owns warehouse
+	err = qtx.UpdateWarehouseUserIdByUsername(c.Context(), db.UpdateWarehouseUserIdByUsernameParams{
+		ID:       warehouseId,
+		Username: body.Username,
+	})
+	if err != nil {
+		log.Printf("Error updating warehouse user id: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	tx.Commit(c.Context())
+
+	return c.Status(200).SendString("Warehouse owner updated")
 }

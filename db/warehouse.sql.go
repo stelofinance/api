@@ -26,12 +26,12 @@ func (q *Queries) AddWarehouseCollateralQuantity(ctx context.Context, arg AddWar
 	return result.RowsAffected(), nil
 }
 
-const getWarehouseUserId = `-- name: GetWarehouseUserId :one
-SELECT user_id FROM warehouse WHERE id = $1
+const getWarehouseUserIdLock = `-- name: GetWarehouseUserIdLock :one
+SELECT user_id FROM warehouse WHERE id = $1 FOR UPDATE
 `
 
-func (q *Queries) GetWarehouseUserId(ctx context.Context, id int64) (int64, error) {
-	row := q.db.QueryRow(ctx, getWarehouseUserId, id)
+func (q *Queries) GetWarehouseUserIdLock(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRow(ctx, getWarehouseUserIdLock, id)
 	var user_id int64
 	err := row.Scan(&user_id)
 	return user_id, err
@@ -67,4 +67,18 @@ func (q *Queries) SubtractWarehouseCollateralQuantity(ctx context.Context, arg S
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const updateWarehouseUserIdByUsername = `-- name: UpdateWarehouseUserIdByUsername :exec
+UPDATE warehouse SET user_id = "user".id FROM "user" WHERE warehouse.id = $1 AND "user".username = $2
+`
+
+type UpdateWarehouseUserIdByUsernameParams struct {
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+}
+
+func (q *Queries) UpdateWarehouseUserIdByUsername(ctx context.Context, arg UpdateWarehouseUserIdByUsernameParams) error {
+	_, err := q.db.Exec(ctx, updateWarehouseUserIdByUsername, arg.ID, arg.Username)
+	return err
 }
