@@ -219,6 +219,10 @@ func postTransaction(c *fiber.Ctx) error {
 			Valid:  body.Memo != "",
 		},
 	})
+	if err != nil {
+		log.Printf("Error creating transaction record: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
 
 	var transactionAssets []db.CreateTransactionAssetsParams
 	for asset, quantity := range body.Assets {
