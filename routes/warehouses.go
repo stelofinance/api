@@ -362,3 +362,22 @@ func postWarehouseWorker(c *fiber.Ctx) error {
 
 	return c.Status(201).SendString("Warehouse worker added to warehouse")
 }
+
+func deleteWarehouseWorker(c *fiber.Ctx) error {
+	workerId, err := strconv.ParseInt(c.Params("workerid"), 10, 64)
+	if err != nil {
+		return c.Status(400).SendString(constants.ErrorG001)
+	}
+
+	// Delete worker
+	err = database.Q.DeleteWarehouseWorker(c.Context(), db.DeleteWarehouseWorkerParams{
+		ID:     workerId,
+		UserID: c.Locals("uid").(int64),
+	})
+	if err != nil {
+		log.Println("Error deleting warehouse worker", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	return c.Status(200).SendString("Worker removed from warehouse")
+}

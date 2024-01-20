@@ -18,4 +18,7 @@ SELECT EXISTS(
     JOIN "user" u ON ww.user_id = u.id
     WHERE ww.warehouse_id = $1 AND u.username = $2
 );
+
+-- name: DeleteWarehouseWorker :exec
+DELETE FROM warehouse_worker WHERE id = $1 AND user_id != $2;
  

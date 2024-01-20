@@ -67,4 +67,5 @@ func WarehousesRouter(app fiber.Router) {
 	app.Put("/:warehouseid/collateral", putCollateral)
 	app.Put("/:warehouseid/owner", putWarehouseOwner)
 	app.Post("/:warehouseid/workers", postWarehouseWorker)
+	app.Delete("/:warehouseid?/workers/:workerid", deleteWarehouseWorker)
 }

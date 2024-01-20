@@ -9,6 +9,20 @@ import (
 	"context"
 )
 
+const deleteWarehouseWorker = `-- name: DeleteWarehouseWorker :exec
+DELETE FROM warehouse_worker WHERE id = $1 AND user_id != $2
+`
+
+type DeleteWarehouseWorkerParams struct {
+	ID     int64 `json:"id"`
+	UserID int64 `json:"user_id"`
+}
+
+func (q *Queries) DeleteWarehouseWorker(ctx context.Context, arg DeleteWarehouseWorkerParams) error {
+	_, err := q.db.Exec(ctx, deleteWarehouseWorker, arg.ID, arg.UserID)
+	return err
+}
+
 const existsWarehouseWorker = `-- name: ExistsWarehouseWorker :one
 SELECT EXISTS(
     SELECT 1 
