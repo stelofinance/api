@@ -1,8 +1,12 @@
 package routes
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -12,6 +16,7 @@ import (
 	"github.com/stelofinance/api/constants"
 	"github.com/stelofinance/api/database"
 	"github.com/stelofinance/api/db"
+	"github.com/stelofinance/api/pusher"
 )
 
 func postWarehouse(c *fiber.Ctx) error {
@@ -162,7 +167,7 @@ func putCollateral(c *fiber.Ctx) error {
 		}
 
 		// Add collateral to warehouse
-		rows, err = qtx.AddWarehouseCollateralQuantity(c.Context(), db.AddWarehouseCollateralQuantityParams{
+		rows, err = qtx.AddWarehouseCollateral(c.Context(), db.AddWarehouseCollateralParams{
 			ID:         int64(warehouseId),
 			Collateral: body.Amount,
 		})
@@ -225,7 +230,7 @@ func putCollateral(c *fiber.Ctx) error {
 		}
 
 		// Remove collateral from warehouse
-		rows, err = qtx.SubtractWarehouseCollateralQuantity(c.Context(), db.SubtractWarehouseCollateralQuantityParams{
+		rows, err = qtx.SubtractWarehouseCollateral(c.Context(), db.SubtractWarehouseCollateralParams{
 			ID:         int64(warehouseId),
 			Collateral: amount,
 		})
@@ -395,4 +400,271 @@ func getWarehouseWorkers(c *fiber.Ctx) error {
 	}
 
 	return c.Status(200).JSON(workers)
+}
+
+func postWarehouseAssets(c *fiber.Ctx) error {
+	var body struct {
+		Recipient string           `json:"recipient" validate:"required"`
+		Type      uint8            `json:"type" validate:"lte=2"`
+		Memo      string           `json:"memo" validate:"max=64"`
+		Assets    map[string]int64 `json:"assets" validate:"gt=0,dive,keys,ne=stelo,endkeys,gt=0"`
+	}
+
+	// Parse and validate body
+	if c.BodyParser(&body) != nil {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+	if validate.Struct(body) != nil {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+	warehouseId, err := strconv.ParseInt(c.Params("warehouseid"), 10, 64)
+	if err != nil {
+		return c.Status(400).SendString(constants.ErrorG001)
+	}
+
+	// Default the memo if there is none
+	if body.Memo == "" {
+		body.Memo = "warehouse deposit"
+	}
+
+	tx, err := database.DB.Begin(c.Context())
+	defer tx.Rollback(c.Context())
+	if err != nil {
+		log.Printf("Error creating db transaction: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	qtx := database.Q.WithTx(tx)
+
+	// Get asset ids
+	var assetNames []string
+	for asset := range body.Assets {
+		if asset == "stelo" {
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+		assetNames = append(assetNames, asset)
+	}
+	assets, err := qtx.GetAssetsByNames(c.Context(), assetNames)
+	if err != nil {
+		log.Printf("Error getting assets id & name: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	if len(assets) != len(body.Assets) {
+		return c.Status(404).SendString(constants.ErrorI000)
+	}
+	assetsMap := make(map[string]db.Asset)
+	for _, asset := range assets {
+		assetsMap[asset.Name] = asset
+	}
+
+	// Make sure warehouse has enough collateral
+	var collateralNeeded int64 = 0
+	for asset, quantity := range body.Assets {
+		collateralNeeded += assetsMap[asset].Value * quantity
+	}
+	warehouseResult, err := qtx.GetWarehouseCollateralLiabilityAndRatioLock(c.Context(), warehouseId)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.Status(404).SendString(constants.ErrorH001)
+		}
+		log.Println("Unable to fetch warehouse", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	collateralRatio, err := warehouseResult.CollateralRatio.Float64Value()
+	log.Println("Collateral ratio", collateralRatio)
+	if err != nil {
+		log.Println("Error getting collateral ratio", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	availableCollateral := float64(warehouseResult.Collateral) - float64(warehouseResult.Liability)*collateralRatio.Float64
+	log.Println("Available collateral", availableCollateral)
+	log.Println("Collateral actually needed", float64(collateralNeeded)*collateralRatio.Float64)
+	if availableCollateral < float64(collateralNeeded)*collateralRatio.Float64 {
+		return c.Status(400).SendString(constants.ErrorH003)
+	}
+
+	// Get recipient's walletId
+	var recipientWalletID int64
+	webhook := pgtype.Text{
+		String: "",
+		Valid:  false,
+	}
+	// Username type
+	if body.Type == 0 {
+		walletID, err := qtx.GetWalletByUsername(c.Context(), body.Recipient)
+		if err != nil {
+			return c.Status(404).SendString(constants.ErrorU003)
+		}
+		if !walletID.Valid {
+			log.Printf("user created without wallet")
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+		recipientWalletID = walletID.Int64
+		// Address type
+	} else if body.Type == 1 {
+		wallet, err := qtx.GetWalletIdAndWebhookByAddress(c.Context(), body.Recipient)
+		if err != nil {
+			return c.Status(404).SendString(constants.ErrorW000)
+		}
+		recipientWalletID = wallet.ID
+		webhook = wallet.Webhook
+		// Wallet Id type
+	} else {
+		wallet_id, err := strconv.ParseInt(body.Recipient, 10, 0)
+		if err != nil {
+			return c.Status(400).SendString(constants.ErrorG000)
+		}
+		wallet_webhook, err := qtx.GetWalletWebhook(c.Context(), wallet_id)
+		recipientWalletID = wallet_id
+		webhook = wallet_webhook
+	}
+
+	// If there is a webhook hit it first
+	if webhook.Valid {
+		// Create the body
+		postBody, err := json.Marshal(fiber.Map{
+			"wallet_id": c.Locals("wid").(int64),
+			"memo":      body.Memo,
+			"assets":    body.Assets,
+		})
+		if err != nil {
+			log.Printf("Error creating json body: {%v}", err.Error())
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+		responseBody := bytes.NewBuffer(postBody)
+
+		// Hit the webhook
+		resp, err := http.Post(webhook.String, "application/json", responseBody)
+		if err != nil {
+			log.Printf("Error posting to webhook: {%v}", err.Error())
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+		if resp.StatusCode != 200 && resp.StatusCode != 201 && resp.StatusCode != 202 {
+			return c.Status(400).SendString(constants.ErrorW010)
+		}
+		resp.Body.Close()
+	}
+
+	// Deposit assets into recipient's account
+	for asset, quantity := range body.Assets {
+		rows, err := qtx.AddWalletAssetQuantity(c.Context(), db.AddWalletAssetQuantityParams{
+			Quantity: quantity,
+			WalletID: recipientWalletID,
+			AssetID:  assetsMap[asset].ID,
+		})
+
+		if err != nil {
+			log.Printf("Error adding asset quantity: {%v}", err.Error())
+			return c.Status(500).SendString(constants.ErrorS000)
+		} else if rows == 0 {
+			err := qtx.CreateWalletAsset(c.Context(), db.CreateWalletAssetParams{
+				Quantity: quantity,
+				WalletID: recipientWalletID,
+				AssetID:  assetsMap[asset].ID,
+			})
+
+			if err != nil {
+				log.Printf("Error creating wallet asset: {%v}", err.Error())
+				return c.Status(500).SendString(constants.ErrorS000)
+			}
+		}
+	}
+
+	// Create transaction record
+	transactionID, err := qtx.CreateTransaction(c.Context(), db.CreateTransactionParams{
+		SendingWalletID:   recipientWalletID,
+		ReceivingWalletID: recipientWalletID,
+		CreatedAt:         time.Now(),
+		Memo: pgtype.Text{
+			String: body.Memo,
+			Valid:  true,
+		},
+	})
+	if err != nil {
+		log.Printf("Error creating transaction record: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	var transactionAssets []db.CreateTransactionAssetsParams
+	for asset, quantity := range body.Assets {
+		transactionAssets = append(transactionAssets, db.CreateTransactionAssetsParams{
+			TransactionID: transactionID,
+			AssetID:       assetsMap[asset].ID,
+			Quantity:      quantity,
+		})
+	}
+
+	txAssetsResult := qtx.CreateTransactionAssets(c.Context(), transactionAssets)
+
+	var insertErrorOccured bool
+	txAssetsResult.Exec(func(i int, err error) {
+		if err != nil {
+			insertErrorOccured = true
+		}
+	})
+	if insertErrorOccured {
+		log.Printf("Error inserting transaction assets: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	// Deposit assets into warehouse
+	for asset, quantity := range body.Assets {
+		rows, err := qtx.AddWarehouseAssetQuantity(c.Context(), db.AddWarehouseAssetQuantityParams{
+			Quantity:    quantity,
+			WarehouseID: warehouseId,
+			AssetID:     assetsMap[asset].ID,
+		})
+
+		if err != nil {
+			log.Printf("Error adding warehouse asset quantity: {%v}", err.Error())
+			return c.Status(500).SendString(constants.ErrorS000)
+		} else if rows == 0 {
+			err := qtx.CreateWarehouseAsset(c.Context(), db.CreateWarehouseAssetParams{
+				Quantity:    quantity,
+				WarehouseID: warehouseId,
+				AssetID:     assetsMap[asset].ID,
+			})
+
+			if err != nil {
+				log.Printf("Error creating warehouse asset: {%v}", err.Error())
+				return c.Status(500).SendString(constants.ErrorS000)
+			}
+		}
+	}
+
+	// Adjust warehouse liability
+	err = qtx.AddWarehouseLiabiliy(c.Context(), db.AddWarehouseLiabiliyParams{
+		ID:        warehouseId,
+		Liability: collateralNeeded,
+	})
+	if err != nil {
+		log.Println("Unable to add warehouse liability", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	tx.Commit(c.Context())
+
+	// Send to pusher cannel
+	go func(recipient int64, sender int64, memo string, assets map[string]int64) {
+		var data fiber.Map
+
+		if memo != "" {
+			data = fiber.Map{
+				"sender": sender,
+				"memo":   memo,
+				"assets": assets,
+			}
+		} else {
+			data = fiber.Map{
+				"sender": sender,
+				"assets": assets,
+			}
+		}
+
+		err := pusher.PusherClient.Trigger("private-wallet@"+fmt.Sprint(recipient), "transaction:incoming", data)
+		if err != nil {
+			log.Printf("Error posting transaction to Pusher: {%v}", err.Error())
+		}
+	}(recipientWalletID, recipientWalletID, body.Memo, body.Assets)
+
+	return c.Status(201).SendString("Assets deposited, transaction created")
 }

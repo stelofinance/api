@@ -18,3 +18,6 @@ SELECT id FROM asset WHERE name = $1 LIMIT 1;
 
 -- name: GetAssetsIdNameByNames :many
 SELECT id, name FROM asset WHERE name = ANY($1::varchar[]);
+
+-- name: GetAssetsByNames :many
+SELECT * FROM asset WHERE name = ANY($1::varchar[]);
