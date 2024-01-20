@@ -16,7 +16,7 @@ import (
 
 func postWarehouse(c *fiber.Ctx) error {
 	var body struct {
-		Name        string   `json:"name" validate:"required"`
+		Name        string   `json:"name" validate:"required,min=2,max=32"`
 		Coordinates [2]int64 `json:"coordinates"`
 	}
 
