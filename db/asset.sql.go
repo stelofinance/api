@@ -70,6 +70,30 @@ func (q *Queries) GetAssetsByIds(ctx context.Context, dollar_1 []int64) ([]Asset
 	return items, nil
 }
 
+const getAssetsByNames = `-- name: GetAssetsByNames :many
+SELECT id, name, value FROM asset WHERE name = ANY($1::varchar[])
+`
+
+func (q *Queries) GetAssetsByNames(ctx context.Context, dollar_1 []string) ([]Asset, error) {
+	rows, err := q.db.Query(ctx, getAssetsByNames, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Asset
+	for rows.Next() {
+		var i Asset
+		if err := rows.Scan(&i.ID, &i.Name, &i.Value); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAssetsIdNameByNames = `-- name: GetAssetsIdNameByNames :many
 SELECT id, name FROM asset WHERE name = ANY($1::varchar[])
 `

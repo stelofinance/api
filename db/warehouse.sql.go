@@ -7,23 +7,56 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const addWarehouseCollateralQuantity = `-- name: AddWarehouseCollateralQuantity :execrows
+const addWarehouseCollateral = `-- name: AddWarehouseCollateral :execrows
 UPDATE warehouse SET collateral = collateral + $1 WHERE id = $2
 `
 
-type AddWarehouseCollateralQuantityParams struct {
+type AddWarehouseCollateralParams struct {
 	Collateral int64 `json:"collateral"`
 	ID         int64 `json:"id"`
 }
 
-func (q *Queries) AddWarehouseCollateralQuantity(ctx context.Context, arg AddWarehouseCollateralQuantityParams) (int64, error) {
-	result, err := q.db.Exec(ctx, addWarehouseCollateralQuantity, arg.Collateral, arg.ID)
+func (q *Queries) AddWarehouseCollateral(ctx context.Context, arg AddWarehouseCollateralParams) (int64, error) {
+	result, err := q.db.Exec(ctx, addWarehouseCollateral, arg.Collateral, arg.ID)
 	if err != nil {
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const addWarehouseLiabiliy = `-- name: AddWarehouseLiabiliy :exec
+UPDATE warehouse SET liability = liability + $1 WHERE id = $2
+`
+
+type AddWarehouseLiabiliyParams struct {
+	Liability int64 `json:"liability"`
+	ID        int64 `json:"id"`
+}
+
+func (q *Queries) AddWarehouseLiabiliy(ctx context.Context, arg AddWarehouseLiabiliyParams) error {
+	_, err := q.db.Exec(ctx, addWarehouseLiabiliy, arg.Liability, arg.ID)
+	return err
+}
+
+const getWarehouseCollateralLiabilityAndRatioLock = `-- name: GetWarehouseCollateralLiabilityAndRatioLock :one
+SELECT collateral, liability, collateral_ratio FROM warehouse WHERE id = $1 FOR UPDATE
+`
+
+type GetWarehouseCollateralLiabilityAndRatioLockRow struct {
+	Collateral      int64          `json:"collateral"`
+	Liability       int64          `json:"liability"`
+	CollateralRatio pgtype.Numeric `json:"collateral_ratio"`
+}
+
+func (q *Queries) GetWarehouseCollateralLiabilityAndRatioLock(ctx context.Context, id int64) (GetWarehouseCollateralLiabilityAndRatioLockRow, error) {
+	row := q.db.QueryRow(ctx, getWarehouseCollateralLiabilityAndRatioLock, id)
+	var i GetWarehouseCollateralLiabilityAndRatioLockRow
+	err := row.Scan(&i.Collateral, &i.Liability, &i.CollateralRatio)
+	return i, err
 }
 
 const getWarehouseUserIdLock = `-- name: GetWarehouseUserIdLock :one
@@ -54,17 +87,17 @@ func (q *Queries) InsertWarehouse(ctx context.Context, arg InsertWarehouseParams
 	return id, err
 }
 
-const subtractWarehouseCollateralQuantity = `-- name: SubtractWarehouseCollateralQuantity :execrows
+const subtractWarehouseCollateral = `-- name: SubtractWarehouseCollateral :execrows
 UPDATE warehouse SET collateral = collateral - $1 WHERE id = $2 AND collateral >= $1
 `
 
-type SubtractWarehouseCollateralQuantityParams struct {
+type SubtractWarehouseCollateralParams struct {
 	Collateral int64 `json:"collateral"`
 	ID         int64 `json:"id"`
 }
 
-func (q *Queries) SubtractWarehouseCollateralQuantity(ctx context.Context, arg SubtractWarehouseCollateralQuantityParams) (int64, error) {
-	result, err := q.db.Exec(ctx, subtractWarehouseCollateralQuantity, arg.Collateral, arg.ID)
+func (q *Queries) SubtractWarehouseCollateral(ctx context.Context, arg SubtractWarehouseCollateralParams) (int64, error) {
+	result, err := q.db.Exec(ctx, subtractWarehouseCollateral, arg.Collateral, arg.ID)
 	if err != nil {
 		return 0, err
 	}
