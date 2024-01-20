@@ -44,6 +44,38 @@ func (q *Queries) ExistsWarehouseWorker(ctx context.Context, arg ExistsWarehouse
 	return exists, err
 }
 
+const getWarehouseWorkers = `-- name: GetWarehouseWorkers :many
+SELECT ww.id, u.username
+FROM warehouse_worker ww
+JOIN "user" u ON ww.user_id = u.id
+WHERE ww.warehouse_id = $1
+`
+
+type GetWarehouseWorkersRow struct {
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+}
+
+func (q *Queries) GetWarehouseWorkers(ctx context.Context, warehouseID int64) ([]GetWarehouseWorkersRow, error) {
+	rows, err := q.db.Query(ctx, getWarehouseWorkers, warehouseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetWarehouseWorkersRow
+	for rows.Next() {
+		var i GetWarehouseWorkersRow
+		if err := rows.Scan(&i.ID, &i.Username); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertWarehouseWorker = `-- name: InsertWarehouseWorker :exec
 INSERT INTO warehouse_worker (warehouse_id, user_id) VALUES ($1, $2)
 `

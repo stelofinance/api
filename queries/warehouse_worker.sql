@@ -21,4 +21,10 @@ SELECT EXISTS(
 
 -- name: DeleteWarehouseWorker :exec
 DELETE FROM warehouse_worker WHERE id = $1 AND user_id != $2;
+
+-- name: GetWarehouseWorkers :many
+SELECT ww.id, u.username
+FROM warehouse_worker ww
+JOIN "user" u ON ww.user_id = u.id
+WHERE ww.warehouse_id = $1;
  

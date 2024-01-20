@@ -381,3 +381,18 @@ func deleteWarehouseWorker(c *fiber.Ctx) error {
 
 	return c.Status(200).SendString("Worker removed from warehouse")
 }
+
+func getWarehouseWorkers(c *fiber.Ctx) error {
+	warehouseId, err := strconv.ParseInt(c.Params("warehouseid"), 10, 64)
+	if err != nil {
+		return c.Status(400).SendString(constants.ErrorG001)
+	}
+
+	workers, err := database.Q.GetWarehouseWorkers(c.Context(), warehouseId)
+	if err != nil {
+		log.Println("Error getting warehouse workers", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	return c.Status(200).JSON(workers)
+}
