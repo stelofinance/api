@@ -28,8 +28,16 @@ func postWarehouse(c *fiber.Ctx) error {
 		return c.Status(400).SendString(constants.ErrorG000)
 	}
 
+	tx, err := database.DB.Begin(c.Context())
+	defer tx.Rollback(c.Context())
+	if err != nil {
+		log.Printf("Error creating db transaction: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	qtx := database.Q.WithTx(tx)
+
 	// Check they have permission to create the warehouse
-	canCreateWarehouses, err := database.Q.GetUserCanCreateWarehouses(c.Context(), c.Locals("uid").(int64))
+	canCreateWarehouses, err := qtx.GetUserCanCreateWarehouses(c.Context(), c.Locals("uid").(int64))
 	if err != nil {
 		log.Println("Error getting can create warehouses permission", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
@@ -40,7 +48,7 @@ func postWarehouse(c *fiber.Ctx) error {
 	}
 
 	// Create the warehouse
-	err = database.Q.InsertWarehouse(
+	warehouseId, err := qtx.InsertWarehouse(
 		c.Context(),
 		db.InsertWarehouseParams{
 			Name:     body.Name,
@@ -51,6 +59,18 @@ func postWarehouse(c *fiber.Ctx) error {
 		log.Println("Error creating warehouse", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
+
+	// Add owner to warehouse's workers
+	err = qtx.InsertWarehouseWorker(c.Context(), db.InsertWarehouseWorkerParams{
+		WarehouseID: warehouseId,
+		UserID:      c.Locals("uid").(int64),
+	})
+	if err != nil {
+		log.Println("Error adding owner to new warehouse's workers", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	tx.Commit(c.Context())
 
 	return c.Status(201).SendString("Warehouse created")
 }
@@ -262,6 +282,19 @@ func putWarehouseOwner(c *fiber.Ctx) error {
 		return c.Status(403).SendString(constants.ErrorH002)
 	}
 
+	// Make sure new owner is a worker
+	isWorker, err := qtx.ExistsWarehouseWorker(c.Context(), db.ExistsWarehouseWorkerParams{
+		WarehouseID: warehouseId,
+		Username:    body.Username,
+	})
+	if err != nil {
+		log.Println("Error checking is new owner is a worker", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	if !isWorker {
+		return c.Status(400).SendString(constants.ErrorH004)
+	}
+
 	// Update user who owns warehouse
 	err = qtx.UpdateWarehouseUserIdByUsername(c.Context(), db.UpdateWarehouseUserIdByUsernameParams{
 		ID:       warehouseId,
@@ -275,4 +308,57 @@ func putWarehouseOwner(c *fiber.Ctx) error {
 	tx.Commit(c.Context())
 
 	return c.Status(200).SendString("Warehouse owner updated")
+}
+
+func postWarehouseWorker(c *fiber.Ctx) error {
+	var body struct {
+		Username string `json:"username" validate:"required"`
+	}
+
+	// Parse and validate body
+	if c.BodyParser(&body) != nil {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+	if validate.Struct(body) != nil {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+
+	tx, err := database.DB.Begin(c.Context())
+	defer tx.Rollback(c.Context())
+	if err != nil {
+		log.Printf("Error creating db transaction: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	qtx := database.Q.WithTx(tx)
+
+	// Make sure requester is owner of warehouse
+	warehouseId, err := strconv.ParseInt(c.Params("warehouseid"), 10, 64)
+	if err != nil {
+		return c.Status(400).SendString(constants.ErrorG001)
+	}
+	userId, err := qtx.GetWarehouseUserIdLock(c.Context(), int64(warehouseId))
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return c.Status(404).SendString(constants.ErrorH001)
+		}
+		log.Println("Failed to fetch user id from warehouse", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	if userId != c.Locals("uid").(int64) {
+		return c.Status(403).SendString(constants.ErrorH002)
+	}
+
+	// Assign user to warehouse
+	err = qtx.InsertWarehouseWorkerByUsername(c.Context(), db.InsertWarehouseWorkerByUsernameParams{
+		WarehouseID: warehouseId,
+		Username:    body.Username,
+	})
+	if err != nil {
+		log.Printf("Error updating warehouse user id: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	tx.Commit(c.Context())
+
+	return c.Status(201).SendString("Warehouse worker added to warehouse")
 }

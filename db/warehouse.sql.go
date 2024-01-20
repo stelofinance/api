@@ -37,8 +37,8 @@ func (q *Queries) GetWarehouseUserIdLock(ctx context.Context, id int64) (int64, 
 	return user_id, err
 }
 
-const insertWarehouse = `-- name: InsertWarehouse :exec
-INSERT INTO warehouse (name, user_id, location) VALUES ($1, $2, $3)
+const insertWarehouse = `-- name: InsertWarehouse :one
+INSERT INTO warehouse (name, user_id, location) VALUES ($1, $2, $3) RETURNING id
 `
 
 type InsertWarehouseParams struct {
@@ -47,9 +47,11 @@ type InsertWarehouseParams struct {
 	Location interface{} `json:"location"`
 }
 
-func (q *Queries) InsertWarehouse(ctx context.Context, arg InsertWarehouseParams) error {
-	_, err := q.db.Exec(ctx, insertWarehouse, arg.Name, arg.UserID, arg.Location)
-	return err
+func (q *Queries) InsertWarehouse(ctx context.Context, arg InsertWarehouseParams) (int64, error) {
+	row := q.db.QueryRow(ctx, insertWarehouse, arg.Name, arg.UserID, arg.Location)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }
 
 const subtractWarehouseCollateralQuantity = `-- name: SubtractWarehouseCollateralQuantity :execrows

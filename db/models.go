@@ -83,3 +83,9 @@ type Warehouse struct {
 	Collateral      int64          `json:"collateral"`
 	CollateralRatio pgtype.Numeric `json:"collateral_ratio"`
 }
+
+type WarehouseWorker struct {
+	ID          int64 `json:"id"`
+	WarehouseID int64 `json:"warehouse_id"`
+	UserID      int64 `json:"user_id"`
+}

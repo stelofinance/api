@@ -66,4 +66,5 @@ func WarehousesRouter(app fiber.Router) {
 	app.Post("/", postWarehouse)
 	app.Put("/:warehouseid/collateral", putCollateral)
 	app.Put("/:warehouseid/owner", putWarehouseOwner)
+	app.Post("/:warehouseid/workers", postWarehouseWorker)
 }

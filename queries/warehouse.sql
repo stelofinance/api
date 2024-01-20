@@ -1,5 +1,5 @@
--- name: InsertWarehouse :exec
-INSERT INTO warehouse (name, user_id, location) VALUES ($1, $2, $3);
+-- name: InsertWarehouse :one
+INSERT INTO warehouse (name, user_id, location) VALUES ($1, $2, $3) RETURNING id;
 
 -- name: SubtractWarehouseCollateralQuantity :execrows
 UPDATE warehouse SET collateral = collateral - $1 WHERE id = $2 AND collateral >= $1;
