@@ -104,6 +104,20 @@ func (q *Queries) SubtractWarehouseCollateral(ctx context.Context, arg SubtractW
 	return result.RowsAffected(), nil
 }
 
+const subtractWarehouseLiabiliy = `-- name: SubtractWarehouseLiabiliy :exec
+UPDATE warehouse SET liability = liability - $1 WHERE id = $2
+`
+
+type SubtractWarehouseLiabiliyParams struct {
+	Liability int64 `json:"liability"`
+	ID        int64 `json:"id"`
+}
+
+func (q *Queries) SubtractWarehouseLiabiliy(ctx context.Context, arg SubtractWarehouseLiabiliyParams) error {
+	_, err := q.db.Exec(ctx, subtractWarehouseLiabiliy, arg.Liability, arg.ID)
+	return err
+}
+
 const updateWarehouseUserIdByUsername = `-- name: UpdateWarehouseUserIdByUsername :exec
 UPDATE warehouse SET user_id = "user".id FROM "user" WHERE warehouse.id = $1 AND "user".username = $2
 `

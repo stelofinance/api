@@ -41,3 +41,21 @@ func (q *Queries) CreateWarehouseAsset(ctx context.Context, arg CreateWarehouseA
 	_, err := q.db.Exec(ctx, createWarehouseAsset, arg.WarehouseID, arg.AssetID, arg.Quantity)
 	return err
 }
+
+const subtractWarehouseAssetQuantity = `-- name: SubtractWarehouseAssetQuantity :execrows
+UPDATE warehouse_asset SET quantity = quantity - $1 WHERE warehouse_id = $2 AND quantity >= $1 AND asset_id = $3
+`
+
+type SubtractWarehouseAssetQuantityParams struct {
+	Quantity    int64 `json:"quantity"`
+	WarehouseID int64 `json:"warehouse_id"`
+	AssetID     int64 `json:"asset_id"`
+}
+
+func (q *Queries) SubtractWarehouseAssetQuantity(ctx context.Context, arg SubtractWarehouseAssetQuantityParams) (int64, error) {
+	result, err := q.db.Exec(ctx, subtractWarehouseAssetQuantity, arg.Quantity, arg.WarehouseID, arg.AssetID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}

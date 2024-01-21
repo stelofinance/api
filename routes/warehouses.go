@@ -404,9 +404,6 @@ func postWarehouseAssets(c *fiber.Ctx) error {
 	// Get asset ids
 	var assetNames []string
 	for asset := range body.Assets {
-		if asset == "stelo" {
-			return c.Status(500).SendString(constants.ErrorS000)
-		}
 		assetNames = append(assetNames, asset)
 	}
 	assets, err := qtx.GetAssetsByNames(c.Context(), assetNames)
@@ -436,14 +433,11 @@ func postWarehouseAssets(c *fiber.Ctx) error {
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	collateralRatio, err := warehouseResult.CollateralRatio.Float64Value()
-	log.Println("Collateral ratio", collateralRatio)
 	if err != nil {
 		log.Println("Error getting collateral ratio", err.Error())
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 	availableCollateral := float64(warehouseResult.Collateral) - float64(warehouseResult.Liability)*collateralRatio.Float64
-	log.Println("Available collateral", availableCollateral)
-	log.Println("Collateral actually needed", float64(collateralNeeded)*collateralRatio.Float64)
 	if availableCollateral < float64(collateralNeeded)*collateralRatio.Float64 {
 		return c.Status(400).SendString(constants.ErrorH003)
 	}
@@ -633,4 +627,174 @@ func postWarehouseAssets(c *fiber.Ctx) error {
 	}(recipientWalletID, recipientWalletID, body.Memo, body.Assets)
 
 	return c.Status(201).SendString("Assets deposited, transaction created")
+}
+
+func deleteWarehouseAssets(c *fiber.Ctx) error {
+	var body struct {
+		Recipient string           `json:"recipient" validate:"required"`
+		Type      uint8            `json:"type" validate:"lte=2"`
+		Memo      string           `json:"memo" validate:"max=64"`
+		Assets    map[string]int64 `json:"assets" validate:"gt=0,dive,keys,ne=stelo,endkeys,gt=0"`
+	}
+
+	// Parse and validate body
+	if c.BodyParser(&body) != nil {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+	if validate.Struct(body) != nil {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+	warehouseId, err := strconv.ParseInt(c.Params("warehouseid"), 10, 64)
+	if err != nil {
+		return c.Status(400).SendString(constants.ErrorG001)
+	}
+
+	// Default the memo if there is none
+	if body.Memo == "" {
+		body.Memo = "warehouse withdrawal"
+	}
+
+	tx, err := database.DB.Begin(c.Context())
+	defer tx.Rollback(c.Context())
+	if err != nil {
+		log.Printf("Error creating db transaction: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	qtx := database.Q.WithTx(tx)
+
+	// Get asset ids
+	var assetNames []string
+	for asset := range body.Assets {
+		assetNames = append(assetNames, asset)
+	}
+	assets, err := qtx.GetAssetsByNames(c.Context(), assetNames)
+	if err != nil {
+		log.Printf("Error getting assets id & name: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	if len(assets) != len(body.Assets) {
+		return c.Status(404).SendString(constants.ErrorI000)
+	}
+	assetsMap := make(map[string]db.Asset)
+	for _, asset := range assets {
+		assetsMap[asset.Name] = asset
+	}
+
+	// Calculate liability to release
+	var liability int64 = 0
+	for asset, quantity := range body.Assets {
+		liability += assetsMap[asset].Value * quantity
+	}
+
+	// Get recipient's walletId
+	var recipientWalletID int64
+	// Username type
+	if body.Type == 0 {
+		walletID, err := qtx.GetWalletByUsername(c.Context(), body.Recipient)
+		if err != nil {
+			return c.Status(404).SendString(constants.ErrorU003)
+		}
+		if !walletID.Valid {
+			log.Printf("user created without wallet")
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+		recipientWalletID = walletID.Int64
+		// Address type
+	} else if body.Type == 1 {
+		wallet, err := qtx.GetWalletIdAndWebhookByAddress(c.Context(), body.Recipient)
+		if err != nil {
+			return c.Status(404).SendString(constants.ErrorW000)
+		}
+		recipientWalletID = wallet.ID
+		// Wallet Id type
+	} else {
+		wallet_id, err := strconv.ParseInt(body.Recipient, 10, 0)
+		if err != nil {
+			return c.Status(400).SendString(constants.ErrorG000)
+		}
+		recipientWalletID = wallet_id
+	}
+
+	// Remove assets from requesters wallet
+	for asset, quantity := range body.Assets {
+		rows, err := qtx.SubtractWalletAssetQuantity(c.Context(), db.SubtractWalletAssetQuantityParams{
+			Quantity: quantity,
+			WalletID: recipientWalletID,
+			AssetID:  assetsMap[asset].ID,
+		})
+
+		if err != nil {
+			log.Printf("Error subtracting quantity from asset: {%v}", err.Error())
+			return c.Status(500).SendString(constants.ErrorS000)
+		} else if rows == 0 {
+			return c.Status(400).SendString(constants.ErrorI001)
+		}
+	}
+
+	// Create transaction record
+	transactionID, err := qtx.CreateTransaction(c.Context(), db.CreateTransactionParams{
+		SendingWalletID:   recipientWalletID,
+		ReceivingWalletID: recipientWalletID,
+		CreatedAt:         time.Now(),
+		Memo: pgtype.Text{
+			String: body.Memo,
+			Valid:  true,
+		},
+	})
+	if err != nil {
+		log.Printf("Error creating transaction record: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	var transactionAssets []db.CreateTransactionAssetsParams
+	for asset, quantity := range body.Assets {
+		transactionAssets = append(transactionAssets, db.CreateTransactionAssetsParams{
+			TransactionID: transactionID,
+			AssetID:       assetsMap[asset].ID,
+			Quantity:      quantity,
+		})
+	}
+
+	txAssetsResult := qtx.CreateTransactionAssets(c.Context(), transactionAssets)
+
+	var insertErrorOccured bool
+	txAssetsResult.Exec(func(i int, err error) {
+		if err != nil {
+			insertErrorOccured = true
+		}
+	})
+	if insertErrorOccured {
+		log.Printf("Error inserting transaction assets: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	// Withdraw assets from warehouse
+	for asset, quantity := range body.Assets {
+		rows, err := qtx.SubtractWarehouseAssetQuantity(c.Context(), db.SubtractWarehouseAssetQuantityParams{
+			Quantity:    quantity,
+			WarehouseID: warehouseId,
+			AssetID:     assetsMap[asset].ID,
+		})
+
+		if err != nil {
+			log.Printf("Error adding warehouse asset quantity: {%v}", err.Error())
+			return c.Status(500).SendString(constants.ErrorS000)
+		} else if rows == 0 {
+			return c.Status(400).SendString(constants.ErrorH005)
+		}
+	}
+
+	// Adjust warehouse liability
+	err = qtx.SubtractWarehouseLiabiliy(c.Context(), db.SubtractWarehouseLiabiliyParams{
+		ID:        warehouseId,
+		Liability: liability,
+	})
+	if err != nil {
+		log.Println("Unable to subtract warehouse liability", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	tx.Commit(c.Context())
+
+	return c.Status(201).SendString("Assets withdrawn, transaction created")
 }

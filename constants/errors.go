@@ -43,4 +43,5 @@ const (
 	ErrorH002 = "H002: Not Warehouse Owner"
 	ErrorH003 = "H003: Not Enough Collateral"
 	ErrorH004 = "H004: Not Warehouse Worker"
+	ErrorH005 = "H005: Not Enough Assets"
 )

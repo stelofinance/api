@@ -18,3 +18,6 @@ SELECT collateral, liability, collateral_ratio FROM warehouse WHERE id = $1 FOR 
 
 -- name: AddWarehouseLiabiliy :exec
 UPDATE warehouse SET liability = liability + $1 WHERE id = $2;
+
+-- name: SubtractWarehouseLiabiliy :exec
+UPDATE warehouse SET liability = liability - $1 WHERE id = $2;

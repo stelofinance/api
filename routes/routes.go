@@ -70,4 +70,5 @@ func WarehousesRouter(app fiber.Router) {
 	app.Delete("/:warehouseid/workers/:workerid", auth.NewWarehouse(auth.Owner), deleteWarehouseWorker)
 	app.Get("/:warehouseid/workers", auth.NewWarehouse(auth.Worker), getWarehouseWorkers)
 	app.Post("/:warehouseid/assets", auth.NewWarehouse(auth.Worker), postWarehouseAssets)
+	app.Delete("/:warehouseid/assets", auth.NewWarehouse(auth.Worker), deleteWarehouseAssets)
 }
