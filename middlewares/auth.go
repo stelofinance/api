@@ -2,11 +2,14 @@ package auth
 
 import (
 	"log"
+	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
 	"github.com/stelofinance/api/constants"
 	"github.com/stelofinance/api/database"
+	"github.com/stelofinance/api/db"
 	"github.com/stelofinance/api/tools"
 )
 
@@ -124,5 +127,53 @@ func New(role Role) fiber.Handler {
 
 		log.Fatal("Auth no Role matched")
 		return c.Status(500).SendString(constants.ErrorS000)
+	}
+}
+
+type WarehouseRole int
+
+const (
+	Worker WarehouseRole = iota
+	Owner
+)
+
+// `warehouseid` must be in the path for this auth middleware
+func NewWarehouse(role WarehouseRole) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		warehouseId, err := strconv.ParseInt(c.Params("warehouseid"), 10, 64)
+		if err != nil {
+			return c.Status(400).SendString(constants.ErrorG001)
+		}
+
+		if role == Worker {
+			isWorker, err := database.Q.ExistsWarehouseWorker(c.Context(), db.ExistsWarehouseWorkerParams{
+				WarehouseID: warehouseId,
+				UserID:      c.Locals("uid").(int64),
+			})
+			if err != nil {
+				log.Println("Error checking is new owner is a worker", err.Error())
+				return c.Status(500).SendString(constants.ErrorS000)
+			}
+			if !isWorker {
+				return c.Status(400).SendString(constants.ErrorH004)
+			}
+
+			return c.Next()
+		}
+		// Else it's owner
+		userId, err := database.Q.GetWarehouseUserId(c.Context(), int64(warehouseId))
+		if err != nil {
+			if err == pgx.ErrNoRows {
+				return c.Status(404).SendString(constants.ErrorH001)
+			}
+			log.Println("Failed to fetch user id from warehouse", err.Error())
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+
+		if userId != c.Locals("uid").(int64) {
+			return c.Status(403).SendString(constants.ErrorH002)
+		}
+
+		return c.Next()
 	}
 }

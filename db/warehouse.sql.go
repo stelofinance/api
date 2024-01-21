@@ -59,12 +59,12 @@ func (q *Queries) GetWarehouseCollateralLiabilityAndRatioLock(ctx context.Contex
 	return i, err
 }
 
-const getWarehouseUserIdLock = `-- name: GetWarehouseUserIdLock :one
-SELECT user_id FROM warehouse WHERE id = $1 FOR UPDATE
+const getWarehouseUserId = `-- name: GetWarehouseUserId :one
+SELECT user_id FROM warehouse WHERE id = $1
 `
 
-func (q *Queries) GetWarehouseUserIdLock(ctx context.Context, id int64) (int64, error) {
-	row := q.db.QueryRow(ctx, getWarehouseUserIdLock, id)
+func (q *Queries) GetWarehouseUserId(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRow(ctx, getWarehouseUserId, id)
 	var user_id int64
 	err := row.Scan(&user_id)
 	return user_id, err

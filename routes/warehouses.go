@@ -101,22 +101,10 @@ func putCollateral(c *fiber.Ctx) error {
 	}
 	qtx := database.Q.WithTx(tx)
 
-	// Make sure requester is owner of warehouse
+	// Parse warehouseId
 	warehouseId, err := strconv.Atoi(c.Params("warehouseid"))
 	if err != nil {
 		return c.Status(400).SendString(constants.ErrorG001)
-	}
-	userId, err := qtx.GetWarehouseUserIdLock(c.Context(), int64(warehouseId))
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return c.Status(404).SendString(constants.ErrorH001)
-		}
-		log.Println("Failed to fetch user id from warehouse", err.Error())
-		return c.Status(500).SendString(constants.ErrorS000)
-	}
-
-	if userId != c.Locals("uid").(int64) {
-		return c.Status(403).SendString(constants.ErrorH002)
 	}
 
 	// Find Stelo asset id
@@ -270,25 +258,14 @@ func putWarehouseOwner(c *fiber.Ctx) error {
 	}
 	qtx := database.Q.WithTx(tx)
 
-	// Make sure requester is owner of warehouse
+	// Parse warehouseId
 	warehouseId, err := strconv.ParseInt(c.Params("warehouseid"), 10, 64)
 	if err != nil {
 		return c.Status(400).SendString(constants.ErrorG001)
 	}
-	userId, err := qtx.GetWarehouseUserIdLock(c.Context(), int64(warehouseId))
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return c.Status(404).SendString(constants.ErrorH001)
-		}
-		log.Println("Failed to fetch user id from warehouse", err.Error())
-		return c.Status(500).SendString(constants.ErrorS000)
-	}
-	if userId != c.Locals("uid").(int64) {
-		return c.Status(403).SendString(constants.ErrorH002)
-	}
 
 	// Make sure new owner is a worker
-	isWorker, err := qtx.ExistsWarehouseWorker(c.Context(), db.ExistsWarehouseWorkerParams{
+	isWorker, err := qtx.ExistsWarehouseWorkerByUsername(c.Context(), db.ExistsWarehouseWorkerByUsernameParams{
 		WarehouseID: warehouseId,
 		Username:    body.Username,
 	})
@@ -336,21 +313,10 @@ func postWarehouseWorker(c *fiber.Ctx) error {
 	}
 	qtx := database.Q.WithTx(tx)
 
-	// Make sure requester is owner of warehouse
+	// Parse warehouseId
 	warehouseId, err := strconv.ParseInt(c.Params("warehouseid"), 10, 64)
 	if err != nil {
 		return c.Status(400).SendString(constants.ErrorG001)
-	}
-	userId, err := qtx.GetWarehouseUserIdLock(c.Context(), int64(warehouseId))
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return c.Status(404).SendString(constants.ErrorH001)
-		}
-		log.Println("Failed to fetch user id from warehouse", err.Error())
-		return c.Status(500).SendString(constants.ErrorS000)
-	}
-	if userId != c.Locals("uid").(int64) {
-		return c.Status(403).SendString(constants.ErrorH002)
 	}
 
 	// Assign user to warehouse

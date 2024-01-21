@@ -26,19 +26,39 @@ func (q *Queries) DeleteWarehouseWorker(ctx context.Context, arg DeleteWarehouse
 const existsWarehouseWorker = `-- name: ExistsWarehouseWorker :one
 SELECT EXISTS(
     SELECT 1 
+    FROM warehouse_worker
+    WHERE warehouse_id = $1 AND user_id = $2
+)
+`
+
+type ExistsWarehouseWorkerParams struct {
+	WarehouseID int64 `json:"warehouse_id"`
+	UserID      int64 `json:"user_id"`
+}
+
+func (q *Queries) ExistsWarehouseWorker(ctx context.Context, arg ExistsWarehouseWorkerParams) (bool, error) {
+	row := q.db.QueryRow(ctx, existsWarehouseWorker, arg.WarehouseID, arg.UserID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const existsWarehouseWorkerByUsername = `-- name: ExistsWarehouseWorkerByUsername :one
+SELECT EXISTS(
+    SELECT 1 
     FROM warehouse_worker ww
     JOIN "user" u ON ww.user_id = u.id
     WHERE ww.warehouse_id = $1 AND u.username = $2
 )
 `
 
-type ExistsWarehouseWorkerParams struct {
+type ExistsWarehouseWorkerByUsernameParams struct {
 	WarehouseID int64  `json:"warehouse_id"`
 	Username    string `json:"username"`
 }
 
-func (q *Queries) ExistsWarehouseWorker(ctx context.Context, arg ExistsWarehouseWorkerParams) (bool, error) {
-	row := q.db.QueryRow(ctx, existsWarehouseWorker, arg.WarehouseID, arg.Username)
+func (q *Queries) ExistsWarehouseWorkerByUsername(ctx context.Context, arg ExistsWarehouseWorkerByUsernameParams) (bool, error) {
+	row := q.db.QueryRow(ctx, existsWarehouseWorkerByUsername, arg.WarehouseID, arg.Username)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
