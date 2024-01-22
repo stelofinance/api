@@ -16,6 +16,9 @@ UPDATE warehouse SET user_id = "user".id FROM "user" WHERE warehouse.id = $1 AND
 -- name: GetWarehouseCollateralLiabilityAndRatioLock :one
 SELECT collateral, liability, collateral_ratio FROM warehouse WHERE id = $1 FOR UPDATE;
 
+-- name: GetWarehouseCollateralLiabilityAndRatio :one
+SELECT collateral, liability, collateral_ratio FROM warehouse WHERE id = $1;
+
 -- name: AddWarehouseLiabiliy :exec
 UPDATE warehouse SET liability = liability + $1 WHERE id = $2;
 

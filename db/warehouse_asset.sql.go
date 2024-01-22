@@ -42,6 +42,45 @@ func (q *Queries) CreateWarehouseAsset(ctx context.Context, arg CreateWarehouseA
 	return err
 }
 
+const getWarehouseAssets = `-- name: GetWarehouseAssets :many
+SELECT a.id, a.name, a.value, wa.quantity
+FROM warehouse_asset wa
+JOIN asset a ON a.id = wa.asset_id
+WHERE wa.warehouse_id = $1
+`
+
+type GetWarehouseAssetsRow struct {
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	Value    int64  `json:"value"`
+	Quantity int64  `json:"quantity"`
+}
+
+func (q *Queries) GetWarehouseAssets(ctx context.Context, warehouseID int64) ([]GetWarehouseAssetsRow, error) {
+	rows, err := q.db.Query(ctx, getWarehouseAssets, warehouseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetWarehouseAssetsRow
+	for rows.Next() {
+		var i GetWarehouseAssetsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Value,
+			&i.Quantity,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const subtractWarehouseAssetQuantity = `-- name: SubtractWarehouseAssetQuantity :execrows
 UPDATE warehouse_asset SET quantity = quantity - $1 WHERE warehouse_id = $2 AND quantity >= $1 AND asset_id = $3
 `

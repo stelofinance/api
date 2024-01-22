@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -797,4 +798,87 @@ func deleteWarehouseAssets(c *fiber.Ctx) error {
 	tx.Commit(c.Context())
 
 	return c.Status(201).SendString("Assets withdrawn, transaction created")
+}
+
+func getWarehouseAssets(c *fiber.Ctx) error {
+	warehouseId, err := strconv.ParseInt(c.Params("warehouseid"), 10, 64)
+	if err != nil {
+		return c.Status(400).SendString(constants.ErrorG001)
+	}
+
+	assets, err := database.Q.GetWarehouseAssets(c.Context(), warehouseId)
+	if err != nil {
+		log.Println("Error fetching warehouse assets", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	return c.Status(200).JSON(assets)
+}
+
+func getWarehouseCollateral(c *fiber.Ctx) error {
+	warehouseId, err := strconv.ParseInt(c.Params("warehouseid"), 10, 64)
+	if err != nil {
+		return c.Status(400).SendString(constants.ErrorG001)
+	}
+
+	warehouseInfo, err := database.Q.GetWarehouseCollateralLiabilityAndRatio(c.Context(), warehouseId)
+	if err != nil {
+		log.Println("Error fetching warehouse collateral info", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	warehouseCollateralRatio, err := warehouseInfo.CollateralRatio.Float64Value()
+	if err != nil {
+		log.Println("Unable to get warehouse collateral ratio", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	type ratiodType struct {
+		Liability      float64 `json:"liability"`
+		FreeCollateral float64 `json:"free_collateral"`
+		Utilization    float64 `json:"utilization"`
+	}
+	type returnType struct {
+		Collateral             int64      `json:"collateral"`
+		Liability              int64      `json:"liability"`
+		WithdrawableCollateral int64      `json:"withdrawable_collateral"`
+		Ratio                  float64    `json:"ratio"`
+		Ratiod                 ratiodType `json:"ratiod"`
+	}
+
+	// Hardcode return if their collateral is zero
+	if warehouseCollateralRatio.Float64 == 0.0 {
+		return c.Status(200).JSON(returnType{
+			Collateral:             warehouseInfo.Collateral,
+			Liability:              warehouseInfo.Liability,
+			WithdrawableCollateral: warehouseInfo.Collateral,
+			Ratio:                  0.0,
+			Ratiod: struct {
+				Liability      float64 "json:\"liability\""
+				FreeCollateral float64 "json:\"free_collateral\""
+				Utilization    float64 "json:\"utilization\""
+			}{
+				Liability:      0.0,
+				FreeCollateral: float64(warehouseInfo.Collateral),
+				Utilization:    0.0,
+			},
+		})
+	}
+
+	var returnBody returnType
+
+	// Set ratio
+	returnBody.Ratio = warehouseCollateralRatio.Float64
+
+	// Calculate all numbers
+	returnBody.Liability = warehouseInfo.Liability
+	returnBody.Ratiod.Liability = float64(warehouseInfo.Liability) * returnBody.Ratio
+
+	returnBody.Collateral = warehouseInfo.Collateral
+
+	returnBody.WithdrawableCollateral = warehouseInfo.Collateral - int64(math.Ceil(returnBody.Ratiod.Liability))
+	returnBody.Ratiod.FreeCollateral = float64(returnBody.WithdrawableCollateral) / returnBody.Ratio
+
+	returnBody.Ratiod.Utilization = returnBody.Ratiod.Liability / (float64(returnBody.Collateral) / returnBody.Ratio)
+
+	return c.Status(200).JSON(returnBody)
 }

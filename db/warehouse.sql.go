@@ -42,6 +42,23 @@ func (q *Queries) AddWarehouseLiabiliy(ctx context.Context, arg AddWarehouseLiab
 	return err
 }
 
+const getWarehouseCollateralLiabilityAndRatio = `-- name: GetWarehouseCollateralLiabilityAndRatio :one
+SELECT collateral, liability, collateral_ratio FROM warehouse WHERE id = $1
+`
+
+type GetWarehouseCollateralLiabilityAndRatioRow struct {
+	Collateral      int64          `json:"collateral"`
+	Liability       int64          `json:"liability"`
+	CollateralRatio pgtype.Numeric `json:"collateral_ratio"`
+}
+
+func (q *Queries) GetWarehouseCollateralLiabilityAndRatio(ctx context.Context, id int64) (GetWarehouseCollateralLiabilityAndRatioRow, error) {
+	row := q.db.QueryRow(ctx, getWarehouseCollateralLiabilityAndRatio, id)
+	var i GetWarehouseCollateralLiabilityAndRatioRow
+	err := row.Scan(&i.Collateral, &i.Liability, &i.CollateralRatio)
+	return i, err
+}
+
 const getWarehouseCollateralLiabilityAndRatioLock = `-- name: GetWarehouseCollateralLiabilityAndRatioLock :one
 SELECT collateral, liability, collateral_ratio FROM warehouse WHERE id = $1 FOR UPDATE
 `
