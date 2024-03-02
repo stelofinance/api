@@ -1,0 +1,4 @@
+[formatting]
+	indent_entries = true
+	indent_tables = true
+	indent_string = "\t"
