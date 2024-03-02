@@ -1,6 +1,6 @@
 module github.com/stelofinance/api
 
-go 1.18
+go 1.21.5
 
 require (
 	github.com/dchest/uniuri v1.2.0
