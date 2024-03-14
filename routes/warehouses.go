@@ -832,17 +832,17 @@ func getWarehouseCollateral(c *fiber.Ctx) error {
 		return c.Status(500).SendString(constants.ErrorS000)
 	}
 
-	type ratiodType struct {
+	type ratioedType struct {
 		Liability      float64 `json:"liability"`
 		FreeCollateral float64 `json:"free_collateral"`
 		Utilization    float64 `json:"utilization"`
 	}
 	type returnType struct {
-		Collateral             int64      `json:"collateral"`
-		Liability              int64      `json:"liability"`
-		WithdrawableCollateral int64      `json:"withdrawable_collateral"`
-		Ratio                  float64    `json:"ratio"`
-		Ratiod                 ratiodType `json:"ratiod"`
+		Collateral             int64       `json:"collateral"`
+		Liability              int64       `json:"liability"`
+		WithdrawableCollateral int64       `json:"withdrawable_collateral"`
+		Ratio                  float64     `json:"ratio"`
+		Ratioed                ratioedType `json:"ratioed"`
 	}
 
 	// Hardcode return if their collateral is zero
@@ -852,7 +852,7 @@ func getWarehouseCollateral(c *fiber.Ctx) error {
 			Liability:              warehouseInfo.Liability,
 			WithdrawableCollateral: warehouseInfo.Collateral,
 			Ratio:                  0.0,
-			Ratiod: struct {
+			Ratioed: struct {
 				Liability      float64 "json:\"liability\""
 				FreeCollateral float64 "json:\"free_collateral\""
 				Utilization    float64 "json:\"utilization\""
@@ -871,14 +871,100 @@ func getWarehouseCollateral(c *fiber.Ctx) error {
 
 	// Calculate all numbers
 	returnBody.Liability = warehouseInfo.Liability
-	returnBody.Ratiod.Liability = float64(warehouseInfo.Liability) * returnBody.Ratio
+	returnBody.Ratioed.Liability = float64(warehouseInfo.Liability) * returnBody.Ratio
 
 	returnBody.Collateral = warehouseInfo.Collateral
 
-	returnBody.WithdrawableCollateral = warehouseInfo.Collateral - int64(math.Ceil(returnBody.Ratiod.Liability))
-	returnBody.Ratiod.FreeCollateral = float64(returnBody.WithdrawableCollateral) / returnBody.Ratio
+	returnBody.WithdrawableCollateral = warehouseInfo.Collateral - int64(math.Ceil(returnBody.Ratioed.Liability))
+	returnBody.Ratioed.FreeCollateral = float64(returnBody.WithdrawableCollateral) / returnBody.Ratio
 
-	returnBody.Ratiod.Utilization = returnBody.Ratiod.Liability / (float64(returnBody.Collateral) / returnBody.Ratio)
+	returnBody.Ratioed.Utilization = returnBody.Ratioed.Liability / float64(returnBody.Collateral)
 
 	return c.Status(200).JSON(returnBody)
+}
+
+func postTransfer(c *fiber.Ctx) error {
+	var body struct {
+		SendingWarehouseId int64            `json:"sending_warehouse_id" validate:"required"`
+		Assets             map[string]int64 `json:"assets" validate:"gt=0,dive,keys,ne=stelo,endkeys,gt=0"`
+	}
+
+	// Parse and validate body
+	if c.BodyParser(&body) != nil {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+	if validate.Struct(body) != nil {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+
+	// Parse warehouseId
+	warehouseId, err := strconv.Atoi(c.Params("warehouseid"))
+	if err != nil {
+		return c.Status(400).SendString(constants.ErrorG001)
+	}
+
+	tx, err := database.DB.Begin(c.Context())
+	defer tx.Rollback(c.Context())
+	if err != nil {
+		log.Printf("Error creating db transaction: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	qtx := database.Q.WithTx(tx)
+
+	// Create transfer request
+	transferId, err := qtx.InsertTransfer(c.Context(), db.InsertTransferParams{
+		CreatedAt:            time.Now(),
+		Status:               db.TransferStatusOpen,
+		SendingWarehouseID:   body.SendingWarehouseId,
+		ReceivingWarehouseID: int64(warehouseId),
+	})
+	if err != nil {
+		log.Println(body.SendingWarehouseId)
+		log.Println("Error creating transfer request", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	// Create a string int64 map for asset names to ids
+	var assetNames []string
+	for asset := range body.Assets {
+		assetNames = append(assetNames, asset)
+	}
+	assets, err := qtx.GetAssetsIdNameByNames(c.Context(), assetNames)
+	if err != nil {
+		log.Printf("Error getting assets id & name: {%v}", err.Error())
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	assetIDs := make(map[string]int64)
+	for _, asset := range assets {
+		assetIDs[asset.Name] = asset.ID
+	}
+
+	// Create transfer assets
+	var transferAssets []db.CreateTransferAssetsParams
+	for asset, quantity := range body.Assets {
+		transferAssets = append(transferAssets, db.CreateTransferAssetsParams{
+			TransferID: transferId,
+			AssetID:    assetIDs[asset],
+			Quantity:   quantity,
+		})
+	}
+
+	txAssetsResult := qtx.CreateTransferAssets(c.Context(), transferAssets)
+
+	var insertError error
+	txAssetsResult.Exec(func(i int, err error) {
+		if err != nil {
+			insertError = err
+		}
+	})
+
+	if insertError != nil {
+		log.Println("Error inserting transfer assets:", insertError)
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	tx.Commit(c.Context())
+
+	return c.Status(201).SendString("Transfer created")
 }
