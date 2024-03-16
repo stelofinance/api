@@ -968,3 +968,19 @@ func postTransfer(c *fiber.Ctx) error {
 
 	return c.Status(201).SendString("Transfer created")
 }
+
+func getTransfers(c *fiber.Ctx) error {
+	// Parse warehouseId
+	warehouseId, err := strconv.Atoi(c.Params("warehouseid"))
+	if err != nil {
+		return c.Status(400).SendString(constants.ErrorG001)
+	}
+
+	results, err := database.Q.GetTransfers(c.Context(), int64(warehouseId))
+	if err != nil {
+		log.Println("Failed to retrieve transfers")
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	return c.Status(200).JSON(results)
+}
