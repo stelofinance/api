@@ -984,3 +984,48 @@ func getTransfers(c *fiber.Ctx) error {
 
 	return c.Status(200).JSON(results)
 }
+
+func putTransferStatus(c *fiber.Ctx) error {
+	var body struct {
+		Status string `json:"status"`
+	}
+
+	// Parse and validate body
+	if c.BodyParser(&body) != nil {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+
+	// Parse warehouseId
+	warehouseId, err := strconv.Atoi(c.Params("warehouseid"))
+	if err != nil {
+		return c.Status(400).SendString(constants.ErrorG001)
+	}
+
+	// Parse transferId
+	transferId, err := strconv.Atoi(c.Params("transferid"))
+	if err != nil {
+		return c.Status(400).SendString(constants.ErrorG001)
+	}
+
+	if body.Status == "declined" {
+		rows, err := database.Q.UpdateTransferStatus(c.Context(), db.UpdateTransferStatusParams{
+			Status:             "declined",
+			ID:                 int64(transferId),
+			SendingWarehouseID: int64(warehouseId),
+			Status_2:           "open",
+		})
+		if err != nil {
+			log.Println("Error updating transfer status:", err)
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+
+		if rows == 0 {
+			// TODO: finish error code
+			return c.Status(400).SendString("TODO: Nothing was updated, check IDs again")
+		}
+
+		return c.Status(200).SendString("Status updated")
+	} else {
+		return c.Status(400).SendString(constants.ErrorG000)
+	}
+}

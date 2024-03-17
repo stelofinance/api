@@ -165,3 +165,32 @@ func (q *Queries) InsertTransfer(ctx context.Context, arg InsertTransferParams) 
 	err := row.Scan(&id)
 	return id, err
 }
+
+const updateTransferStatus = `-- name: UpdateTransferStatus :execrows
+UPDATE transfer
+SET status = $1
+WHERE 
+	id = $2
+	AND sending_warehouse_id = $3
+    AND status = $4
+`
+
+type UpdateTransferStatusParams struct {
+	Status             TransferStatus `json:"status"`
+	ID                 int64          `json:"id"`
+	SendingWarehouseID int64          `json:"sending_warehouse_id"`
+	Status_2           TransferStatus `json:"status_2"`
+}
+
+func (q *Queries) UpdateTransferStatus(ctx context.Context, arg UpdateTransferStatusParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateTransferStatus,
+		arg.Status,
+		arg.ID,
+		arg.SendingWarehouseID,
+		arg.Status_2,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}

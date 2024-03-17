@@ -26,3 +26,11 @@ SELECT t.id, w.name as receiving_warehouse_name, t.receiving_warehouse_id, t.sta
 FROM transfer t
 JOIN warehouse w ON t.receiving_warehouse_id = w.id
 WHERE t.sending_warehouse_id = $1;
+
+-- name: UpdateTransferStatus :execrows
+UPDATE transfer
+SET status = $1
+WHERE
+	id = $2
+	AND sending_warehouse_id = $3
+    AND status = $4;
