@@ -1025,6 +1025,56 @@ func putTransferStatus(c *fiber.Ctx) error {
 		}
 
 		return c.Status(200).SendString("Status updated")
+	} else if body.Status == "approved" {
+		// TODO: this really should remove the items from sending_warehouse
+		// but oh well
+
+		tx, err := database.DB.Begin(c.Context())
+		defer tx.Rollback(c.Context())
+		if err != nil {
+			log.Printf("Error creating db transaction: {%v}", err.Error())
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+		qtx := database.Q.WithTx(tx)
+
+		result, err := qtx.GetTransferTotalCollateral(c.Context(), db.GetTransferTotalCollateralParams{
+			ID:                 int64(transferId),
+			SendingWarehouseID: int64(warehouseId),
+		})
+		if err != nil {
+			log.Println("Error updating transfer status:", err)
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+
+		// Adjust warehouse liability
+		err = qtx.AddWarehouseLiabiliy(c.Context(), db.AddWarehouseLiabiliyParams{
+			ID:        result.ReceivingWarehouseID,
+			Liability: result.TotalCollateral,
+		})
+		if err != nil {
+			log.Println("Unable to add warehouse liability", err.Error())
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+
+		rows, err := database.Q.UpdateTransferStatus(c.Context(), db.UpdateTransferStatusParams{
+			Status:             "approved",
+			ID:                 int64(transferId),
+			SendingWarehouseID: int64(warehouseId),
+			Status_2:           "open",
+		})
+		if err != nil {
+			log.Println("Error updating transfer status:", err)
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+
+		if rows == 0 {
+			// TODO: finish error code
+			return c.Status(400).SendString("TODO: Nothing was updated, check IDs again")
+		}
+
+		tx.Commit(c.Context())
+
+		return c.Status(200).SendString("Status updated")
 	} else {
 		return c.Status(400).SendString(constants.ErrorG000)
 	}

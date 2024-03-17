@@ -90,6 +90,32 @@ func (q *Queries) GetTransferOutboundRequests(ctx context.Context, receivingWare
 	return items, nil
 }
 
+const getTransferTotalCollateral = `-- name: GetTransferTotalCollateral :one
+SELECT t.receiving_warehouse_id, SUM(a.value * ta.quantity) as total_collateral
+FROM transfer t
+JOIN transfer_asset ta ON ta.transfer_id = t.id
+JOIN asset a ON a.id = ta.asset_id
+WHERE t.id = $1 AND t.sending_warehouse_id = $2
+GROUP BY t.receiving_warehouse_id
+`
+
+type GetTransferTotalCollateralParams struct {
+	ID                 int64 `json:"id"`
+	SendingWarehouseID int64 `json:"sending_warehouse_id"`
+}
+
+type GetTransferTotalCollateralRow struct {
+	ReceivingWarehouseID int64 `json:"receiving_warehouse_id"`
+	TotalCollateral      int64 `json:"total_collateral"`
+}
+
+func (q *Queries) GetTransferTotalCollateral(ctx context.Context, arg GetTransferTotalCollateralParams) (GetTransferTotalCollateralRow, error) {
+	row := q.db.QueryRow(ctx, getTransferTotalCollateral, arg.ID, arg.SendingWarehouseID)
+	var i GetTransferTotalCollateralRow
+	err := row.Scan(&i.ReceivingWarehouseID, &i.TotalCollateral)
+	return i, err
+}
+
 const getTransfers = `-- name: GetTransfers :many
 SELECT
 	t.id,
@@ -169,10 +195,10 @@ func (q *Queries) InsertTransfer(ctx context.Context, arg InsertTransferParams) 
 const updateTransferStatus = `-- name: UpdateTransferStatus :execrows
 UPDATE transfer
 SET status = $1
-WHERE 
+WHERE
 	id = $2
 	AND sending_warehouse_id = $3
-    AND status = $4
+	AND status = $4
 `
 
 type UpdateTransferStatusParams struct {

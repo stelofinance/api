@@ -33,4 +33,12 @@ SET status = $1
 WHERE
 	id = $2
 	AND sending_warehouse_id = $3
-    AND status = $4;
+	AND status = $4;
+
+-- name: GetTransferTotalCollateral :one
+SELECT t.receiving_warehouse_id, SUM(a.value * ta.quantity) as total_collateral
+FROM transfer t
+JOIN transfer_asset ta ON ta.transfer_id = t.id
+JOIN asset a ON a.id = ta.asset_id
+WHERE t.id = $1 AND t.sending_warehouse_id = $2
+GROUP BY t.receiving_warehouse_id;
