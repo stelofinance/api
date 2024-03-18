@@ -42,3 +42,10 @@ JOIN transfer_asset ta ON ta.transfer_id = t.id
 JOIN asset a ON a.id = ta.asset_id
 WHERE t.id = $1 AND t.sending_warehouse_id = $2
 GROUP BY t.receiving_warehouse_id;
+
+-- name: GetTransferAssets :many
+SELECT a.id as asset_id, a.name as asset_name, ta.quantity
+FROM transfer t
+JOIN transfer_asset ta ON ta.transfer_id = t.id
+JOIN asset a ON a.id = ta.asset_id
+WHERE t.id = $1 AND t.sending_warehouse_id = $2;

@@ -1026,9 +1026,6 @@ func putTransferStatus(c *fiber.Ctx) error {
 
 		return c.Status(200).SendString("Status updated")
 	} else if body.Status == "approved" {
-		// TODO: this really should remove the items from sending_warehouse
-		// but oh well
-
 		tx, err := database.DB.Begin(c.Context())
 		defer tx.Rollback(c.Context())
 		if err != nil {
@@ -1056,7 +1053,33 @@ func putTransferStatus(c *fiber.Ctx) error {
 			return c.Status(500).SendString(constants.ErrorS000)
 		}
 
-		rows, err := database.Q.UpdateTransferStatus(c.Context(), db.UpdateTransferStatusParams{
+		// Get assets in transfer
+		assets, err := qtx.GetTransferAssets(c.Context(), db.GetTransferAssetsParams{
+			ID:                 int64(transferId),
+			SendingWarehouseID: int64(warehouseId),
+		})
+		if err != nil {
+			log.Println("Error getting assets in transfer:", err)
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+
+		// Remove assets from sending warehouse
+		for _, asset := range assets {
+			rows, err := qtx.SubtractWarehouseAssetQuantity(c.Context(), db.SubtractWarehouseAssetQuantityParams{
+				Quantity:    asset.Quantity,
+				WarehouseID: int64(warehouseId),
+				AssetID:     asset.AssetID,
+			})
+
+			if err != nil {
+				log.Printf("Error removing warehouse asset: {%v}", err.Error())
+				return c.Status(500).SendString(constants.ErrorS000)
+			} else if rows == 0 {
+				return c.Status(400).SendString(constants.ErrorH005)
+			}
+		}
+
+		rows, err := qtx.UpdateTransferStatus(c.Context(), db.UpdateTransferStatusParams{
 			Status:             "approved",
 			ID:                 int64(transferId),
 			SendingWarehouseID: int64(warehouseId),

@@ -10,6 +10,45 @@ import (
 	"time"
 )
 
+const getTransferAssets = `-- name: GetTransferAssets :many
+SELECT a.id as asset_id, a.name as asset_name, ta.quantity
+FROM transfer t
+JOIN transfer_asset ta ON ta.transfer_id = t.id
+JOIN asset a ON a.id = ta.asset_id
+WHERE t.id = $1 AND t.sending_warehouse_id = $2
+`
+
+type GetTransferAssetsParams struct {
+	ID                 int64 `json:"id"`
+	SendingWarehouseID int64 `json:"sending_warehouse_id"`
+}
+
+type GetTransferAssetsRow struct {
+	AssetID   int64  `json:"asset_id"`
+	AssetName string `json:"asset_name"`
+	Quantity  int64  `json:"quantity"`
+}
+
+func (q *Queries) GetTransferAssets(ctx context.Context, arg GetTransferAssetsParams) ([]GetTransferAssetsRow, error) {
+	rows, err := q.db.Query(ctx, getTransferAssets, arg.ID, arg.SendingWarehouseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetTransferAssetsRow
+	for rows.Next() {
+		var i GetTransferAssetsRow
+		if err := rows.Scan(&i.AssetID, &i.AssetName, &i.Quantity); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getTransferInboundRequests = `-- name: GetTransferInboundRequests :many
 SELECT t.id, w.name as receiving_warehouse_name, t.receiving_warehouse_id, t.status, t.created_at
 FROM transfer t
