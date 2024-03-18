@@ -35,13 +35,21 @@ WHERE
 	AND sending_warehouse_id = $3
 	AND status = $4;
 
--- name: GetTransferTotalCollateral :one
-SELECT t.receiving_warehouse_id, SUM(a.value * ta.quantity) as total_collateral
+-- name: GetTransferTotalLiabilityAndReceivingId :one
+SELECT t.receiving_warehouse_id, SUM(a.value * ta.quantity) as total_liability
 FROM transfer t
 JOIN transfer_asset ta ON ta.transfer_id = t.id
 JOIN asset a ON a.id = ta.asset_id
 WHERE t.id = $1 AND t.sending_warehouse_id = $2
 GROUP BY t.receiving_warehouse_id;
+
+-- name: GetTransferTotalLiabilityAndSendingId :one
+SELECT t.sending_warehouse_id, SUM(a.value * ta.quantity) as total_liability
+FROM transfer t
+JOIN transfer_asset ta ON ta.transfer_id = t.id
+JOIN asset a ON a.id = ta.asset_id
+WHERE t.id = $1 AND t.receiving_warehouse_id = $2
+GROUP BY t.sending_warehouse_id;
 
 -- name: GetTransferAssets :many
 SELECT a.id as asset_id, a.name as asset_name, ta.quantity

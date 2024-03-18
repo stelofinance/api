@@ -1034,7 +1034,7 @@ func putTransferStatus(c *fiber.Ctx) error {
 		}
 		qtx := database.Q.WithTx(tx)
 
-		result, err := qtx.GetTransferTotalCollateral(c.Context(), db.GetTransferTotalCollateralParams{
+		result, err := qtx.GetTransferTotalLiabilityAndReceivingId(c.Context(), db.GetTransferTotalLiabilityAndReceivingIdParams{
 			ID:                 int64(transferId),
 			SendingWarehouseID: int64(warehouseId),
 		})
@@ -1046,7 +1046,7 @@ func putTransferStatus(c *fiber.Ctx) error {
 		// Adjust warehouse liability
 		err = qtx.AddWarehouseLiabiliy(c.Context(), db.AddWarehouseLiabiliyParams{
 			ID:        result.ReceivingWarehouseID,
-			Liability: result.TotalCollateral,
+			Liability: result.TotalLiability,
 		})
 		if err != nil {
 			log.Println("Unable to add warehouse liability", err.Error())
@@ -1084,6 +1084,87 @@ func putTransferStatus(c *fiber.Ctx) error {
 			ID:                 int64(transferId),
 			SendingWarehouseID: int64(warehouseId),
 			Status_2:           "open",
+		})
+		if err != nil {
+			log.Println("Error updating transfer status:", err)
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+
+		if rows == 0 {
+			// TODO: finish error code
+			return c.Status(400).SendString("TODO: Nothing was updated, check IDs again")
+		}
+
+		tx.Commit(c.Context())
+
+		return c.Status(200).SendString("Status updated")
+	} else if body.Status == "cleared" {
+		tx, err := database.DB.Begin(c.Context())
+		defer tx.Rollback(c.Context())
+		if err != nil {
+			log.Printf("Error creating db transaction: {%v}", err.Error())
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+		qtx := database.Q.WithTx(tx)
+
+		// Get liability in transfer
+		result, err := qtx.GetTransferTotalLiabilityAndSendingId(c.Context(), db.GetTransferTotalLiabilityAndSendingIdParams{
+			ID:                   int64(transferId),
+			ReceivingWarehouseID: int64(warehouseId),
+		})
+		if err != nil {
+			log.Println("Error updating transfer status:", err)
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+
+		// Remove liability from sending warehouse
+		err = qtx.AddWarehouseLiabiliy(c.Context(), db.AddWarehouseLiabiliyParams{
+			ID:        result.SendingWarehouseID,
+			Liability: result.TotalLiability,
+		})
+		if err != nil {
+			log.Println("Unable to add warehouse liability", err.Error())
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+
+		// Get assets in transfer
+		// TODO: stop using sendingwarehouseid here and just rewrite the query not to suck
+		assets, err := qtx.GetTransferAssets(c.Context(), db.GetTransferAssetsParams{
+			ID:                 int64(transferId),
+			SendingWarehouseID: result.SendingWarehouseID,
+		})
+
+		// Add assets to receiving warehouse
+		for _, asset := range assets {
+			rows, err := qtx.AddWarehouseAssetQuantity(c.Context(), db.AddWarehouseAssetQuantityParams{
+				Quantity:    asset.Quantity,
+				WarehouseID: int64(warehouseId),
+				AssetID:     asset.AssetID,
+			})
+
+			if err != nil {
+				log.Printf("Error adding warehouse asset quantity: {%v}", err.Error())
+				return c.Status(500).SendString(constants.ErrorS000)
+			} else if rows == 0 {
+				err := qtx.CreateWarehouseAsset(c.Context(), db.CreateWarehouseAssetParams{
+					Quantity:    asset.Quantity,
+					WarehouseID: int64(warehouseId),
+					AssetID:     asset.AssetID,
+				})
+
+				if err != nil {
+					log.Printf("Error creating warehouse asset: {%v}", err.Error())
+					return c.Status(500).SendString(constants.ErrorS000)
+				}
+			}
+		}
+
+		// TODO: stop using sendingwarehouseid here and just rewrite the query not to suck
+		rows, err := qtx.UpdateTransferStatus(c.Context(), db.UpdateTransferStatusParams{
+			Status:             "cleared",
+			ID:                 int64(transferId),
+			SendingWarehouseID: result.SendingWarehouseID,
+			Status_2:           "approved",
 		})
 		if err != nil {
 			log.Println("Error updating transfer status:", err)

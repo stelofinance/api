@@ -129,8 +129,8 @@ func (q *Queries) GetTransferOutboundRequests(ctx context.Context, receivingWare
 	return items, nil
 }
 
-const getTransferTotalCollateral = `-- name: GetTransferTotalCollateral :one
-SELECT t.receiving_warehouse_id, SUM(a.value * ta.quantity) as total_collateral
+const getTransferTotalLiabilityAndReceivingId = `-- name: GetTransferTotalLiabilityAndReceivingId :one
+SELECT t.receiving_warehouse_id, SUM(a.value * ta.quantity) as total_liability
 FROM transfer t
 JOIN transfer_asset ta ON ta.transfer_id = t.id
 JOIN asset a ON a.id = ta.asset_id
@@ -138,20 +138,46 @@ WHERE t.id = $1 AND t.sending_warehouse_id = $2
 GROUP BY t.receiving_warehouse_id
 `
 
-type GetTransferTotalCollateralParams struct {
+type GetTransferTotalLiabilityAndReceivingIdParams struct {
 	ID                 int64 `json:"id"`
 	SendingWarehouseID int64 `json:"sending_warehouse_id"`
 }
 
-type GetTransferTotalCollateralRow struct {
+type GetTransferTotalLiabilityAndReceivingIdRow struct {
 	ReceivingWarehouseID int64 `json:"receiving_warehouse_id"`
-	TotalCollateral      int64 `json:"total_collateral"`
+	TotalLiability       int64 `json:"total_liability"`
 }
 
-func (q *Queries) GetTransferTotalCollateral(ctx context.Context, arg GetTransferTotalCollateralParams) (GetTransferTotalCollateralRow, error) {
-	row := q.db.QueryRow(ctx, getTransferTotalCollateral, arg.ID, arg.SendingWarehouseID)
-	var i GetTransferTotalCollateralRow
-	err := row.Scan(&i.ReceivingWarehouseID, &i.TotalCollateral)
+func (q *Queries) GetTransferTotalLiabilityAndReceivingId(ctx context.Context, arg GetTransferTotalLiabilityAndReceivingIdParams) (GetTransferTotalLiabilityAndReceivingIdRow, error) {
+	row := q.db.QueryRow(ctx, getTransferTotalLiabilityAndReceivingId, arg.ID, arg.SendingWarehouseID)
+	var i GetTransferTotalLiabilityAndReceivingIdRow
+	err := row.Scan(&i.ReceivingWarehouseID, &i.TotalLiability)
+	return i, err
+}
+
+const getTransferTotalLiabilityAndSendingId = `-- name: GetTransferTotalLiabilityAndSendingId :one
+SELECT t.sending_warehouse_id, SUM(a.value * ta.quantity) as total_liability
+FROM transfer t
+JOIN transfer_asset ta ON ta.transfer_id = t.id
+JOIN asset a ON a.id = ta.asset_id
+WHERE t.id = $1 AND t.receiving_warehouse_id = $2
+GROUP BY t.sending_warehouse_id
+`
+
+type GetTransferTotalLiabilityAndSendingIdParams struct {
+	ID                   int64 `json:"id"`
+	ReceivingWarehouseID int64 `json:"receiving_warehouse_id"`
+}
+
+type GetTransferTotalLiabilityAndSendingIdRow struct {
+	SendingWarehouseID int64 `json:"sending_warehouse_id"`
+	TotalLiability     int64 `json:"total_liability"`
+}
+
+func (q *Queries) GetTransferTotalLiabilityAndSendingId(ctx context.Context, arg GetTransferTotalLiabilityAndSendingIdParams) (GetTransferTotalLiabilityAndSendingIdRow, error) {
+	row := q.db.QueryRow(ctx, getTransferTotalLiabilityAndSendingId, arg.ID, arg.ReceivingWarehouseID)
+	var i GetTransferTotalLiabilityAndSendingIdRow
+	err := row.Scan(&i.SendingWarehouseID, &i.TotalLiability)
 	return i, err
 }
 
