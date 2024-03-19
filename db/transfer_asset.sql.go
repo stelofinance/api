@@ -5,4 +5,39 @@
 
 package db
 
-import ()
+import (
+	"context"
+)
+
+const getTransferAssetsByTransferId = `-- name: GetTransferAssetsByTransferId :many
+SELECT ta.asset_id, a.name, ta.quantity
+FROM transfer_asset ta
+JOIN asset a ON a.id = ta.asset_id
+WHERE ta.transfer_id = $1
+`
+
+type GetTransferAssetsByTransferIdRow struct {
+	AssetID  int64  `json:"asset_id"`
+	Name     string `json:"name"`
+	Quantity int64  `json:"quantity"`
+}
+
+func (q *Queries) GetTransferAssetsByTransferId(ctx context.Context, transferID int64) ([]GetTransferAssetsByTransferIdRow, error) {
+	rows, err := q.db.Query(ctx, getTransferAssetsByTransferId, transferID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetTransferAssetsByTransferIdRow
+	for rows.Next() {
+		var i GetTransferAssetsByTransferIdRow
+		if err := rows.Scan(&i.AssetID, &i.Name, &i.Quantity); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

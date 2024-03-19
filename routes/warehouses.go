@@ -985,6 +985,22 @@ func getTransfers(c *fiber.Ctx) error {
 	return c.Status(200).JSON(results)
 }
 
+func getTransferAssets(c *fiber.Ctx) error {
+	// Parse transferId
+	transferId, err := strconv.Atoi(c.Params("transferid"))
+	if err != nil {
+		return c.Status(400).SendString(constants.ErrorG001)
+	}
+
+	results, err := database.Q.GetTransferAssetsByTransferId(c.Context(), int64(transferId))
+	if err != nil {
+		log.Println("Failed to retrieve transfer assets")
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	return c.Status(200).JSON(results)
+}
+
 func putTransferStatus(c *fiber.Ctx) error {
 	var body struct {
 		Status string `json:"status"`

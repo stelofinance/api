@@ -75,6 +75,6 @@ func WarehousesRouter(app fiber.Router) {
 	app.Get("/:warehouseid/assets", auth.NewWarehouse(auth.Worker), getWarehouseAssets)
 	app.Post("/:warehouseid/transfers", auth.NewWarehouse(auth.Worker), postTransfer)
 	app.Get("/:warehouseid/transfers", auth.NewWarehouse(auth.Worker), getTransfers)
+	app.Get("/:warehouseid/transfers/:transferid/assets", auth.NewWarehouse(auth.Worker), getTransferAssets)
 	app.Put("/:warehouseid/transfers/:transferid/status", auth.NewWarehouse(auth.Worker), putTransferStatus)
-	// app.Put("/:warehouseid/transfers/:transferid/status", auth.NewWarehouse(auth.Worker), nil)
 }
