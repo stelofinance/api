@@ -1199,3 +1199,76 @@ func putTransferStatus(c *fiber.Ctx) error {
 		return c.Status(400).SendString(constants.ErrorG000)
 	}
 }
+
+func getWarehouses(c *fiber.Ctx) error {
+	// TODO: Use dynamic queries
+	query := struct {
+		Asset string `query:"asset" validate:"required,ne=stelo"`
+		Qty   int32  `query:"qty" validate:"required,min=1"`
+		Limit int32  `query:"limit" validate:"min=0,max=10"`
+		X     int    `query:"x"`
+		Z     int    `query:"z"`
+	}{}
+	// Parse and validate params
+	if c.QueryParser(&query) != nil {
+		return c.Status(400).SendString(constants.ErrorG002)
+	}
+	if validate.Struct(query) != nil {
+		return c.Status(400).SendString(constants.ErrorG002)
+	}
+	// Set default if not already
+	if query.Limit == 0 {
+		query.Limit = 5
+	}
+
+	const getWarehousesByPointAndAssets = `
+		WITH asset_counts AS (
+			SELECT wa.warehouse_id
+			FROM warehouse_asset wa
+			JOIN asset a ON wa.asset_id = a.id
+			WHERE a.name = $1
+			GROUP BY wa.warehouse_id
+			HAVING
+				SUM(CASE WHEN a.name = $1 THEN wa.quantity ELSE 0 END) >= $2
+		)
+		SELECT
+			w.name AS warehouse_name,
+			ST_AsText(w.location) AS warehouse_coordinates,
+			ST_Distance($3, w.location) AS distance
+		FROM
+			warehouse w
+		JOIN
+			asset_counts ac ON w.id = ac.warehouse_id
+		ORDER BY
+			distance
+		LIMIT 5;
+		`
+
+	rows, err := database.DB.Query(c.Context(), getWarehousesByPointAndAssets, query.Asset, query.Qty, fmt.Sprintf("POINT(%d %d)", query.X, query.Z))
+	if err != nil {
+		log.Println("Unable to get warehouses:", err)
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	defer rows.Close()
+
+	type responseWarehouse struct {
+		Name        string  `json:"name"`
+		Coordinates string  `json:"coordinates"`
+		Distance    float64 `json:"distance"`
+	}
+
+	var resultWarehouses []responseWarehouse
+
+	for rows.Next() {
+		var warehouse responseWarehouse
+		err := rows.Scan(&warehouse.Name, &warehouse.Coordinates, &warehouse.Distance)
+		if err != nil {
+			log.Println("Unable to scan warehouse:", err)
+			return c.Status(500).SendString(constants.ErrorS000)
+		}
+
+		resultWarehouses = append(resultWarehouses, warehouse)
+	}
+
+	return c.Status(200).JSON(resultWarehouses)
+}
