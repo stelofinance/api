@@ -352,7 +352,7 @@ func getTransactions(c *fiber.Ctx) error {
 
 	var transactionsAPI []map[string]interface{}
 	for _, transaction := range transactions {
-		var assets []transactionAssetAPI
+		assets := make([]transactionAssetAPI, 0)
 
 		// TODO: Optimize this somehow
 		for _, transactionAsset := range transactionAssets {
