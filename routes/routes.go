@@ -64,8 +64,9 @@ func AssetsRouter(app fiber.Router) {
 
 func WarehousesRouter(app fiber.Router) {
 	app.Post("/", postWarehouse)
-	app.Put("/:warehouseid/collateral", auth.NewWarehouse(auth.Owner), putCollateral)
+	app.Patch("/:warehouseid/collateral", auth.NewWarehouse(auth.Owner), patchCollateral)
 	app.Get("/:warehouseid/collateral", auth.NewWarehouse(auth.Owner), getWarehouseCollateral)
+	app.Put("/:warehouseid/liability", auth.NewWarehouse(auth.Owner), putLiability)
 	app.Put("/:warehouseid/owner", auth.NewWarehouse(auth.Owner), putWarehouseOwner)
 	app.Post("/:warehouseid/workers", auth.NewWarehouse(auth.Owner), postWarehouseWorker)
 	app.Delete("/:warehouseid/workers/:workerid", auth.NewWarehouse(auth.Owner), deleteWarehouseWorker)

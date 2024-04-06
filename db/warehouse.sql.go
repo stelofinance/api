@@ -28,17 +28,17 @@ func (q *Queries) AddWarehouseCollateral(ctx context.Context, arg AddWarehouseCo
 	return result.RowsAffected(), nil
 }
 
-const addWarehouseLiabiliy = `-- name: AddWarehouseLiabiliy :exec
+const addWarehouseLiability = `-- name: AddWarehouseLiability :exec
 UPDATE warehouse SET liability = liability + $1 WHERE id = $2
 `
 
-type AddWarehouseLiabiliyParams struct {
+type AddWarehouseLiabilityParams struct {
 	Liability int64 `json:"liability"`
 	ID        int64 `json:"id"`
 }
 
-func (q *Queries) AddWarehouseLiabiliy(ctx context.Context, arg AddWarehouseLiabiliyParams) error {
-	_, err := q.db.Exec(ctx, addWarehouseLiabiliy, arg.Liability, arg.ID)
+func (q *Queries) AddWarehouseLiability(ctx context.Context, arg AddWarehouseLiabilityParams) error {
+	_, err := q.db.Exec(ctx, addWarehouseLiability, arg.Liability, arg.ID)
 	return err
 }
 
@@ -87,6 +87,36 @@ func (q *Queries) GetWarehouseUserId(ctx context.Context, id int64) (int64, erro
 	return user_id, err
 }
 
+const getWarehousesCollateralTotals = `-- name: GetWarehousesCollateralTotals :one
+SELECT 
+    SUM(wa.quantity * a.value) AS warehouse_assets_total,
+    SUM(ta.quantity * a.value) AS transferred_assets_total
+FROM 
+    warehouse_asset wa
+JOIN 
+    asset a ON wa.asset_id = a.id
+JOIN 
+    transfer_asset ta ON wa.asset_id = ta.asset_id
+JOIN 
+    transfer t ON ta.transfer_id = t.id
+WHERE 
+    wa.warehouse_id = $1
+    AND t.status = 'approved'
+    AND t.receiving_warehouse_id = $1
+`
+
+type GetWarehousesCollateralTotalsRow struct {
+	WarehouseAssetsTotal   int64 `json:"warehouse_assets_total"`
+	TransferredAssetsTotal int64 `json:"transferred_assets_total"`
+}
+
+func (q *Queries) GetWarehousesCollateralTotals(ctx context.Context, warehouseID int64) (GetWarehousesCollateralTotalsRow, error) {
+	row := q.db.QueryRow(ctx, getWarehousesCollateralTotals, warehouseID)
+	var i GetWarehousesCollateralTotalsRow
+	err := row.Scan(&i.WarehouseAssetsTotal, &i.TransferredAssetsTotal)
+	return i, err
+}
+
 const insertWarehouse = `-- name: InsertWarehouse :one
 INSERT INTO warehouse (name, user_id, location) VALUES ($1, $2, $3) RETURNING id
 `
@@ -121,18 +151,35 @@ func (q *Queries) SubtractWarehouseCollateral(ctx context.Context, arg SubtractW
 	return result.RowsAffected(), nil
 }
 
-const subtractWarehouseLiabiliy = `-- name: SubtractWarehouseLiabiliy :exec
+const subtractWarehouseLiability = `-- name: SubtractWarehouseLiability :exec
 UPDATE warehouse SET liability = liability - $1 WHERE id = $2
 `
 
-type SubtractWarehouseLiabiliyParams struct {
+type SubtractWarehouseLiabilityParams struct {
 	Liability int64 `json:"liability"`
 	ID        int64 `json:"id"`
 }
 
-func (q *Queries) SubtractWarehouseLiabiliy(ctx context.Context, arg SubtractWarehouseLiabiliyParams) error {
-	_, err := q.db.Exec(ctx, subtractWarehouseLiabiliy, arg.Liability, arg.ID)
+func (q *Queries) SubtractWarehouseLiability(ctx context.Context, arg SubtractWarehouseLiabilityParams) error {
+	_, err := q.db.Exec(ctx, subtractWarehouseLiability, arg.Liability, arg.ID)
 	return err
+}
+
+const updateWarehouseLiability = `-- name: UpdateWarehouseLiability :execrows
+UPDATE warehouse SET liability = $1 WHERE id = $2
+`
+
+type UpdateWarehouseLiabilityParams struct {
+	Liability int64 `json:"liability"`
+	ID        int64 `json:"id"`
+}
+
+func (q *Queries) UpdateWarehouseLiability(ctx context.Context, arg UpdateWarehouseLiabilityParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateWarehouseLiability, arg.Liability, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateWarehouseUserIdByUsername = `-- name: UpdateWarehouseUserIdByUsername :exec

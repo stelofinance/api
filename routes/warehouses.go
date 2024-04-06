@@ -81,7 +81,7 @@ func postWarehouse(c *fiber.Ctx) error {
 	return c.Status(201).SendString("Warehouse created")
 }
 
-func putCollateral(c *fiber.Ctx) error {
+func patchCollateral(c *fiber.Ctx) error {
 	var body struct {
 		Amount int64 `json:"amount" validate:"ne=0"`
 	}
@@ -593,7 +593,7 @@ func postWarehouseAssets(c *fiber.Ctx) error {
 	}
 
 	// Adjust warehouse liability
-	err = qtx.AddWarehouseLiabiliy(c.Context(), db.AddWarehouseLiabiliyParams{
+	err = qtx.AddWarehouseLiability(c.Context(), db.AddWarehouseLiabilityParams{
 		ID:        warehouseId,
 		Liability: collateralNeeded,
 	})
@@ -786,7 +786,7 @@ func deleteWarehouseAssets(c *fiber.Ctx) error {
 	}
 
 	// Adjust warehouse liability
-	err = qtx.SubtractWarehouseLiabiliy(c.Context(), db.SubtractWarehouseLiabiliyParams{
+	err = qtx.SubtractWarehouseLiability(c.Context(), db.SubtractWarehouseLiabilityParams{
 		ID:        warehouseId,
 		Liability: liability,
 	})
@@ -1060,7 +1060,7 @@ func putTransferStatus(c *fiber.Ctx) error {
 		}
 
 		// Adjust warehouse liability
-		err = qtx.AddWarehouseLiabiliy(c.Context(), db.AddWarehouseLiabiliyParams{
+		err = qtx.AddWarehouseLiability(c.Context(), db.AddWarehouseLiabilityParams{
 			ID:        result.ReceivingWarehouseID,
 			Liability: result.TotalLiability,
 		})
@@ -1134,7 +1134,7 @@ func putTransferStatus(c *fiber.Ctx) error {
 		}
 
 		// Remove liability from sending warehouse
-		err = qtx.AddWarehouseLiabiliy(c.Context(), db.AddWarehouseLiabiliyParams{
+		err = qtx.AddWarehouseLiability(c.Context(), db.AddWarehouseLiabilityParams{
 			ID:        result.SendingWarehouseID,
 			Liability: result.TotalLiability,
 		})
@@ -1232,6 +1232,7 @@ func getWarehouses(c *fiber.Ctx) error {
 				SUM(CASE WHEN a.name = $1 THEN wa.quantity ELSE 0 END) >= $2
 		)
 		SELECT
+			w.id AS warehouse_id,
 			w.name AS warehouse_name,
 			ST_AsText(w.location) AS warehouse_coordinates,
 			ST_Distance($3, w.location) AS distance
@@ -1252,6 +1253,7 @@ func getWarehouses(c *fiber.Ctx) error {
 	defer rows.Close()
 
 	type responseWarehouse struct {
+		Id          int64   `json:"warehouse_id"`
 		Name        string  `json:"name"`
 		Coordinates string  `json:"coordinates"`
 		Distance    float64 `json:"distance"`
@@ -1261,7 +1263,7 @@ func getWarehouses(c *fiber.Ctx) error {
 
 	for rows.Next() {
 		var warehouse responseWarehouse
-		err := rows.Scan(&warehouse.Name, &warehouse.Coordinates, &warehouse.Distance)
+		err := rows.Scan(&warehouse.Id, &warehouse.Name, &warehouse.Coordinates, &warehouse.Distance)
 		if err != nil {
 			log.Println("Unable to scan warehouse:", err)
 			return c.Status(500).SendString(constants.ErrorS000)
@@ -1271,4 +1273,32 @@ func getWarehouses(c *fiber.Ctx) error {
 	}
 
 	return c.Status(200).JSON(resultWarehouses)
+}
+
+func putLiability(c *fiber.Ctx) error {
+	// Parse warehouseId
+	warehouseId, err := strconv.Atoi(c.Params("warehouseid"))
+	if err != nil {
+		return c.Status(400).SendString(constants.ErrorG001)
+	}
+
+	result, err := database.Q.GetWarehousesCollateralTotals(c.Context(), int64(warehouseId))
+	if err != nil {
+		log.Println("Unable to get collateral totals:", err)
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+
+	rows, err := database.Q.UpdateWarehouseLiability(c.Context(), db.UpdateWarehouseLiabilityParams{
+		Liability: result.TransferredAssetsTotal + result.WarehouseAssetsTotal,
+		ID:        int64(warehouseId),
+	})
+	if err != nil {
+		log.Println("Unable to update collateral:", err)
+		return c.Status(500).SendString(constants.ErrorS000)
+	}
+	if rows == 0 {
+		return c.Status(404).SendString(constants.ErrorH001)
+	}
+
+	return c.Status(200).SendString("Collateral recalculated and updated")
 }
