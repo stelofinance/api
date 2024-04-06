@@ -30,17 +30,17 @@ UPDATE warehouse SET liability = liability - $1 WHERE id = $2;
 
 -- name: GetWarehousesCollateralTotals :one
 SELECT
-    SUM(wa.quantity * a.value) AS warehouse_assets_total,
-    SUM(ta.quantity * a.value) AS transferred_assets_total
+    COALESCE(SUM(wa.quantity * a.value), 0)::BIGINT AS warehouse_assets_total,
+    COALESCE(SUM(ta.quantity * a.value), 0)::BIGINT AS transferred_assets_total
 FROM
-    warehouse_asset wa
+    warehouse w
 JOIN
-    asset a ON wa.asset_id = a.id
+	warehouse_asset wa ON wa.warehouse_id = w.id
+LEFT JOIN
+    transfer t ON t.receiving_warehouse_id = w.id AND t.status = 'approved' AND t.receiving_warehouse_id = $1
+LEFT JOIN
+    transfer_asset ta ON ta.transfer_id = t.id
 JOIN
-    transfer_asset ta ON wa.asset_id = ta.asset_id
-JOIN
-    transfer t ON ta.transfer_id = t.id
+    asset a ON a.id = wa.asset_id
 WHERE
-    wa.warehouse_id = $1
-    AND t.status = 'approved'
-    AND t.receiving_warehouse_id = $1;
+    w.id = $1;

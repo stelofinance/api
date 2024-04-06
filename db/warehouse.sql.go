@@ -88,21 +88,21 @@ func (q *Queries) GetWarehouseUserId(ctx context.Context, id int64) (int64, erro
 }
 
 const getWarehousesCollateralTotals = `-- name: GetWarehousesCollateralTotals :one
-SELECT 
-    SUM(wa.quantity * a.value) AS warehouse_assets_total,
-    SUM(ta.quantity * a.value) AS transferred_assets_total
-FROM 
-    warehouse_asset wa
-JOIN 
-    asset a ON wa.asset_id = a.id
-JOIN 
-    transfer_asset ta ON wa.asset_id = ta.asset_id
-JOIN 
-    transfer t ON ta.transfer_id = t.id
-WHERE 
-    wa.warehouse_id = $1
-    AND t.status = 'approved'
-    AND t.receiving_warehouse_id = $1
+SELECT
+    COALESCE(SUM(wa.quantity * a.value), 0)::BIGINT AS warehouse_assets_total,
+    COALESCE(SUM(ta.quantity * a.value), 0)::BIGINT AS transferred_assets_total
+FROM
+    warehouse w
+JOIN
+	warehouse_asset wa ON wa.warehouse_id = w.id
+LEFT JOIN
+    transfer t ON t.receiving_warehouse_id = w.id AND t.status = 'approved' AND t.receiving_warehouse_id = $1
+LEFT JOIN
+    transfer_asset ta ON ta.transfer_id = t.id
+JOIN
+    asset a ON a.id = wa.asset_id
+WHERE
+    w.id = $1
 `
 
 type GetWarehousesCollateralTotalsRow struct {
@@ -110,8 +110,8 @@ type GetWarehousesCollateralTotalsRow struct {
 	TransferredAssetsTotal int64 `json:"transferred_assets_total"`
 }
 
-func (q *Queries) GetWarehousesCollateralTotals(ctx context.Context, warehouseID int64) (GetWarehousesCollateralTotalsRow, error) {
-	row := q.db.QueryRow(ctx, getWarehousesCollateralTotals, warehouseID)
+func (q *Queries) GetWarehousesCollateralTotals(ctx context.Context, receivingWarehouseID int64) (GetWarehousesCollateralTotalsRow, error) {
+	row := q.db.QueryRow(ctx, getWarehousesCollateralTotals, receivingWarehouseID)
 	var i GetWarehousesCollateralTotalsRow
 	err := row.Scan(&i.WarehouseAssetsTotal, &i.TransferredAssetsTotal)
 	return i, err
