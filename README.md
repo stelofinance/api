@@ -1,3 +1,6 @@
+> [!NOTE]
+> No longer in use, refer to the [stelofinance](https://github.com/stelofinance/stelofinance) mono repo
+
 # Stelo Finance
 This is the Backend API for the Stelo Finance platform, providing it's core functionality.
 
